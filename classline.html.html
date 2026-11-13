@@ -1,0 +1,2363 @@
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>ClassLine</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@600;700&family=Sora:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout concept: a glass dashboard — fixed left icon/label rail, scrollable
+     content column of frosted panels floating over soft ambient color blobs. */
+  :root {
+    --bg: #F3EFE6;
+    --glass: rgba(255,255,255,0.6);
+    --glass-strong: rgba(255,255,255,0.82);
+    --glass-border: rgba(33,27,18,0.11);
+    --bg-soft: rgba(33,27,18,0.045);
+    --ink: #211B12;
+    --ink-soft: rgba(33,27,18,0.6);
+    --accent: #D9641F;
+    --accent-ink: #FFF8F0;
+    --accent-soft: rgba(217,100,31,0.14);
+    --success: #12966A;
+    --success-soft: rgba(18,150,106,0.14);
+    --gold: #B2650A;
+    --gold-soft: rgba(178,101,10,0.14);
+    --danger: #D6264D;
+    --danger-soft: rgba(214,38,77,0.12);
+    --focus: #D9641F;
+    --shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 18px 32px -24px rgba(33,27,18,0.28);
+    color-scheme: light;
+    font-size: 16px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.5 "IBM Plex Sans", system-ui, sans-serif;
+    position: relative;
+  }
+  body::before {
+    content: ""; position: fixed; top: -18%; left: -12%; width: 58%; height: 56%;
+    background: radial-gradient(circle, rgba(217,100,31,0.22), transparent 70%);
+    z-index: 0; pointer-events: none;
+  }
+  body::after {
+    content: ""; position: fixed; bottom: -22%; right: -16%; width: 62%; height: 62%;
+    background: radial-gradient(circle, rgba(34,170,211,0.16), transparent 70%);
+    z-index: 0; pointer-events: none;
+  }
+  h1, h2, h3 { font-family: "Sora", system-ui, sans-serif; text-wrap: balance; margin: 0; }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  a { color: inherit; }
+  button { font: inherit; }
+  [hidden] { display: none !important; }
+
+  .shell { position: relative; z-index: 1; display: flex; height: 100%; }
+
+  /* ---------- sidebar ---------- */
+  .sidebar {
+    flex: 0 0 76px;
+    display: flex; flex-direction: column; gap: 14px;
+    height: 100%; overflow-y: auto; overflow-x: hidden;
+    padding: 18px 14px;
+    padding-left: max(14px, env(safe-area-inset-left, 0px));
+    background: var(--glass);
+    border-right: 1px solid var(--glass-border);
+    backdrop-filter: blur(26px);
+    -webkit-backdrop-filter: blur(26px);
+    transition: flex-basis .22s ease;
+  }
+  .sidebar.expanded, .sidebar:hover { flex-basis: 236px; }
+
+  .side-toggle {
+    align-self: flex-start;
+    display: flex; align-items: center; gap: 8px;
+    height: 36px; min-width: 36px; flex: none;
+    border-radius: 10px; border: 1px solid var(--glass-border);
+    background: var(--glass-strong); color: var(--ink-soft);
+    cursor: pointer; padding: 0 9px;
+  }
+  .side-toggle .toggle-ico { width: 16px; height: 16px; flex: none; display: flex; }
+  .side-toggle .toggle-ico svg { width: 100%; height: 100%; transition: transform .2s ease; }
+  .side-toggle.rotated .toggle-ico svg { transform: rotate(180deg); }
+  .side-toggle:hover { color: var(--ink); border-color: var(--accent); }
+
+  .side-brand { display: flex; align-items: center; gap: 10px; padding: 2px 6px 6px; }
+  .brand-mark {
+    flex: none; width: 38px; height: 38px; border-radius: 11px;
+    background: linear-gradient(135deg, var(--accent), #FFC266);
+    color: var(--accent-ink);
+    display: flex; align-items: center; justify-content: center;
+    font-family: "Sora", sans-serif; font-weight: 700; font-size: 17px;
+    box-shadow: 0 10px 22px -10px rgba(255,138,61,.65);
+  }
+  .brand-text { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+  .brand-text strong { font-family: "Sora", sans-serif; font-size: 14.5px; font-weight: 700; white-space: nowrap; }
+  .brand-text span { font-size: 10.5px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .tabs { display: flex; flex-direction: column; gap: 3px; margin-top: 2px; }
+  .tabs a {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; border-radius: 11px;
+    color: var(--ink-soft); font-size: 13.5px; font-weight: 600;
+    text-decoration: none; white-space: nowrap;
+  }
+  .tabs a .nav-ico { flex: none; width: 19px; height: 19px; }
+  .tabs a .nav-ico svg { width: 100%; height: 100%; display: block; }
+  .tabs a:hover { background: rgba(255,255,255,0.05); color: var(--ink); }
+  .tabs a.active { background: var(--accent-soft); color: var(--accent); }
+
+  /* labels fade/shrink away while the rail is collapsed, and grow back
+     when it expands (pinned open, or hovered on a pointer device) */
+  .nav-label, .brand-text, .role-pill-text, .toggle-text {
+    max-width: 0; opacity: 0; overflow: hidden;
+    white-space: nowrap; transition: max-width .22s ease, opacity .15s ease;
+  }
+  .nav-label, .toggle-text { display: inline-block; }
+  .sidebar.expanded .nav-label, .sidebar:hover .nav-label,
+  .sidebar.expanded .brand-text, .sidebar:hover .brand-text,
+  .sidebar.expanded .role-pill-text, .sidebar:hover .role-pill-text,
+  .sidebar.expanded .toggle-text, .sidebar:hover .toggle-text {
+    max-width: 170px; opacity: 1;
+  }
+  .brand-text { display: flex; flex-direction: column; }
+  .role-pill-text { display: flex; flex-direction: column; align-items: flex-start; }
+
+  .role-pill {
+    margin-top: auto;
+    display: flex; align-items: center; gap: 10px;
+    background: var(--glass-strong);
+    border: 1px solid var(--glass-border);
+    color: var(--ink);
+    border-radius: 13px;
+    padding: 10px 12px;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+  }
+  .role-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); flex: none; }
+  .role-pill .lbl { font-size: 10.5px; color: var(--ink-soft); white-space: nowrap; }
+  .role-pill strong { font-size: 12.5px; white-space: nowrap; }
+  .role-pill:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, a:focus-visible {
+    outline: 2px solid var(--focus); outline-offset: 2px;
+  }
+
+  .side-toggle, .side-brand, .tabs a, .role-pill { justify-content: center; transition: justify-content .22s ease; }
+  .sidebar.expanded .side-brand, .sidebar:hover .side-brand,
+  .sidebar.expanded .tabs a, .sidebar:hover .tabs a,
+  .sidebar.expanded .role-pill, .sidebar:hover .role-pill {
+    justify-content: flex-start;
+  }
+
+  @media (max-width: 680px) {
+    /* below desktop width, the rail floats over the content instead of
+       pushing it, so expanding it never squeezes the forms */
+    .sidebar {
+      position: fixed; top: 0; left: 0; height: 100%; width: 76px;
+      flex-basis: auto; z-index: 25; transition: width .22s ease;
+      box-shadow: 0 0 40px rgba(0,0,0,.4);
+    }
+    .sidebar.expanded, .sidebar:hover { width: 236px; flex-basis: auto; }
+    .content-area { margin-left: 76px; }
+  }
+
+  /* ---------- content ---------- */
+  .content-area {
+    flex: 1; min-width: 0; height: 100%; overflow-y: auto;
+    padding: 22px 20px 56px;
+    padding-right: max(20px, env(safe-area-inset-right, 0px));
+  }
+  .content-inner { max-width: 740px; margin: 0 auto; }
+  .programme-label {
+    margin: 0 0 16px; font-size: 11px; text-transform: uppercase;
+    letter-spacing: .07em; color: var(--ink-soft);
+  }
+
+  .stats-row { display: flex; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+  .stat-tile {
+    flex: 1 1 150px; min-width: 0;
+    background: var(--glass); border: 1px solid var(--glass-border);
+    border-radius: 14px; padding: 13px 15px;
+    backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px);
+    box-shadow: var(--shadow);
+  }
+  .stat-label { margin: 0; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+  .stat-value {
+    margin: 4px 0 0; font-family: "Sora", sans-serif; font-size: 18px; font-weight: 700;
+    font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  main { display: flex; flex-direction: column; gap: 16px; }
+
+  .card {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 16px;
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    box-shadow: var(--shadow);
+  }
+
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .section-head h2 { font-size: 16.5px; font-weight: 700; }
+  .section-head p { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-soft); }
+
+  /* status strip */
+  .status-strip { display: flex; gap: 12px; align-items: center; }
+  .status-dot { flex: none; width: 12px; height: 12px; border-radius: 50%; margin-top: 2px; }
+  .status-dot.pending { background: var(--gold); box-shadow: 0 0 0 4px var(--gold-soft); }
+  .status-dot.ack { background: var(--success); box-shadow: 0 0 0 4px var(--success-soft); }
+  .status-dot.none { background: var(--ink-soft); opacity: .5; }
+  .status-text .eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-soft); }
+  .status-text .msg { font-size: 15px; font-weight: 600; margin-top: 2px; }
+  .status-text .meta { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+
+  /* quick templates */
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .chip {
+    border: 1px solid var(--glass-border);
+    background: var(--bg-soft);
+    color: var(--ink);
+    border-radius: 999px;
+    padding: 6px 11px;
+    font-size: 12.5px;
+    cursor: pointer;
+  }
+  .chip:hover { border-color: var(--accent); }
+
+  form.composer, div.composer { display: flex; flex-direction: column; gap: 8px; }
+  textarea, input[type=text], input[type=date], input[type=time], input[type=url], input[type=email], input[type=password], input[type=file], select {
+    width: 100%;
+    background: var(--bg-soft);
+    border: 1px solid var(--glass-border);
+    border-radius: 9px;
+    padding: 9px 10px;
+    color: var(--ink);
+    font: inherit;
+    min-width: 0;
+  }
+  textarea { resize: vertical; min-height: 64px; }
+  .composer-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .composer-row > * { flex: 1 1 120px; min-width: 0; }
+  label.inline { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-soft); }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border: none; border-radius: 9px;
+    padding: 9px 14px;
+    font-weight: 700; font-size: 13.5px;
+    cursor: pointer;
+    background: var(--accent); color: var(--accent-ink);
+  }
+  .btn.secondary { background: var(--bg-soft); color: var(--ink); border: 1px solid var(--glass-border); }
+  .btn.ghost { background: transparent; color: var(--ink-soft); border: 1px solid var(--glass-border); padding: 5px 10px; font-size: 12px; font-weight: 500; }
+  .btn.danger-ghost { background: transparent; color: var(--danger); border: 1px solid var(--danger); padding: 5px 10px; font-size: 12px; font-weight: 500; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-row { display: flex; justify-content: flex-end; gap: 8px; }
+
+  /* feed items */
+  .feed { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+  .item {
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 11px 12px;
+    background: var(--bg-soft);
+  }
+  .item.mine { border-color: var(--accent); }
+  .item-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+  .who { display: flex; align-items: center; gap: 7px; min-width: 0; }
+  .badge {
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+    padding: 2px 7px; border-radius: 999px; white-space: nowrap;
+  }
+  .badge.rep { background: var(--gold-soft); color: var(--gold); }
+  .badge.lec { background: var(--accent-soft); color: var(--accent); }
+  .badge.mate { background: var(--glass-border); color: var(--ink-soft); }
+  .who .name { font-size: 12.5px; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .when { font-size: 11.5px; color: var(--ink-soft); flex: none; }
+  .item-text { font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .item-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .chip-status { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 2px 7px; border-radius: 999px; }
+  .chip-status.pending { background: var(--gold-soft); color: var(--gold); }
+  .chip-status.ack { background: var(--success-soft); color: var(--success); }
+
+  .pin-flag { color: var(--gold); font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 4px; }
+
+  .empty {
+    border: 1px dashed var(--glass-border);
+    border-radius: 12px;
+    padding: 22px 16px;
+    text-align: center;
+    color: var(--ink-soft);
+    font-size: 13.5px;
+  }
+  .empty strong { display: block; color: var(--ink); font-size: 14.5px; margin-bottom: 4px; font-family: "Sora", sans-serif; }
+
+  .day-head {
+    font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+    color: var(--ink-soft); margin: 14px 0 6px;
+  }
+  .day-head:first-child { margin-top: 0; }
+  .booking-time { font-size: 13px; }
+  .booking-room {
+    font-size: 11px; font-weight: 600; background: var(--gold-soft); color: var(--gold);
+    padding: 2px 7px; border-radius: 6px; flex: none;
+  }
+  .past { opacity: .5; }
+  .past .item-text, .past .booking-time { text-decoration: line-through; text-decoration-color: var(--ink-soft); }
+
+  .note {
+    font-size: 12px; color: var(--ink-soft); margin-top: 18px; border-top: 1px dashed var(--glass-border); padding-top: 10px;
+  }
+
+  /* role sheet */
+  .sheet-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.55);
+    display: flex; align-items: flex-end; justify-content: center;
+    padding: 0 max(16px, env(safe-area-inset-left,0px)) max(16px, env(safe-area-inset-bottom,0px)) max(16px, env(safe-area-inset-right,0px));
+    z-index: 30;
+  }
+  .sheet {
+    background: #FBF8F2;
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 18px;
+    width: 100%; max-width: 420px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(26px);
+    -webkit-backdrop-filter: blur(26px);
+  }
+  .sheet h3 { font-size: 16px; margin-bottom: 4px; font-family: "Sora", sans-serif; }
+  .sheet p.hint { font-size: 12.5px; color: var(--ink-soft); margin: 0 0 12px; }
+  .role-options { display: flex; flex-direction: column; gap: 6px; }
+  .role-opt {
+    display: flex; align-items: center; justify-content: space-between;
+    border: 1px solid var(--glass-border); border-radius: 10px; padding: 10px 12px;
+    cursor: pointer; background: var(--bg-soft);
+  }
+  .role-opt.selected { border-color: var(--accent); background: var(--accent-soft); }
+  .role-opt .check { color: var(--accent); font-weight: 700; visibility: hidden; }
+  .role-opt.selected .check { visibility: visible; }
+
+  .conn-note { font-size: 12px; color: var(--gold); margin-top: 8px; display: none; }
+  .conn-note.show { display: block; }
+
+  .contact-card { display: flex; flex-direction: column; gap: 10px; }
+  .contact-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .contact-unit { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-soft); }
+  .contact-name { font-family: "Sora", sans-serif; font-size: 15.5px; font-weight: 700; margin-top: 2px; }
+  .phone-edit-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .phone-edit-row input { flex: 1 1 140px; min-width: 0; }
+  .contact-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .act-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    border: 1px solid var(--glass-border); background: var(--bg-soft); color: var(--ink);
+    border-radius: 8px; padding: 7px 12px; font-size: 12.5px; font-weight: 600;
+    cursor: pointer; text-decoration: none;
+  }
+  .act-btn.call { border-color: var(--accent); color: var(--accent); }
+  .act-btn.whatsapp { border-color: #3DA854; color: #3DA854; }
+  .act-btn.sms { border-color: var(--gold); color: var(--gold); }
+  .act-btn.mail { border-color: #6C5CE7; color: #6C5CE7; }
+  .act-btn.disabled { opacity: .45; pointer-events: none; }
+  .link-caveat { font-size: 11.5px; color: var(--ink-soft); }
+
+  .progress-banner { background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 10px; padding: 10px 12px; }
+  .progress-banner .eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); font-weight: 700; }
+  .progress-banner .next-text { font-size: 14.5px; font-weight: 600; margin-top: 3px; }
+  .progress-banner .meta { font-size: 11.5px; color: var(--ink-soft); margin-top: 3px; }
+  .progress-history { display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
+  .progress-entry { border-left: 2px solid var(--glass-border); padding-left: 8px; font-size: 12.5px; color: var(--ink-soft); }
+  .progress-entry strong { color: var(--ink); font-weight: 600; }
+  .progress-composer { display: none; flex-direction: column; gap: 8px; }
+  .progress-composer.open { display: flex; }
+
+  .seller-card { background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 12px; padding: 12px; }
+  .seller-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .seller-field { flex: 1 1 150px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .seller-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-soft); }
+  .howto { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--glass-border); font-size: 13px; }
+  .howto strong { display: block; margin-bottom: 4px; font-family: "Sora", sans-serif; }
+  .howto ol { margin: 0; padding-left: 18px; color: var(--ink-soft); }
+  .howto ol li { margin-bottom: 2px; }
+
+  .deal-group { margin-bottom: 16px; }
+  .deal-group:last-child { margin-bottom: 0; }
+  .deal-group-head { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); margin-bottom: 6px; }
+  .deal-line {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+    border: 1px solid var(--glass-border); background: var(--bg-soft); border-radius: 10px;
+    padding: 9px 11px; margin-bottom: 6px;
+  }
+  .deal-line:last-child { margin-bottom: 0; }
+  .deal-line-text { font-size: 13.5px; font-weight: 600; min-width: 0; }
+  .deal-line-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  /* ---- Lecturer Line hero + feature-card treatment ---- */
+  .hero-band {
+    background: linear-gradient(160deg, #1A3E29, #0C2317);
+    color: #F3EFE6;
+    border-radius: 18px;
+    padding: 28px 24px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+  }
+  .hero-eyebrow {
+    margin: 0 0 10px; font-size: 11px; text-transform: uppercase; letter-spacing: .09em;
+    color: #E3B04B; font-weight: 700;
+  }
+  .hero-title {
+    font-family: "Source Serif 4", Georgia, serif; font-weight: 700;
+    font-size: 28px; line-height: 1.18; margin: 0 0 12px; color: #FBF8F2; text-wrap: balance;
+  }
+  .hero-tag { margin: 0 0 20px; font-size: 14px; color: rgba(251,248,242,0.82); max-width: 46ch; }
+  .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .hero-btn { padding: 11px 18px; border-radius: 999px; font-weight: 700; font-size: 13.5px; border: none; cursor: pointer; }
+  .hero-btn.primary { background: #F3EFE6; color: #13331F; }
+  .hero-btn.ghost-light { background: transparent; color: #FBF8F2; border: 1px solid rgba(251,248,242,0.4); }
+
+  #panel-lecturer .feature-card .section-head h2,
+  #panel-lecturer .feature-card .status-text .msg {
+    font-family: "Source Serif 4", Georgia, serif; font-weight: 700;
+  }
+  .feature-icon {
+    width: 34px; height: 34px; margin-bottom: 10px; color: var(--accent);
+  }
+  .feature-icon svg { width: 100%; height: 100%; }
+</style>
+
+<div class="shell">
+  <aside class="sidebar" id="sidebar">
+    <button type="button" class="side-toggle" id="sideToggle" title="Expand navigation" aria-label="Expand navigation" aria-expanded="false">
+      <span class="toggle-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
+      <span class="toggle-text">Collapse</span>
+    </button>
+    <div class="side-brand">
+      <div class="brand-mark">§</div>
+      <div class="brand-text"><strong>ClassLine</strong><span>CPS Mgt · Y1 Sem 1</span></div>
+    </div>
+    <nav class="tabs" aria-label="Sections">
+      <a href="#lecturer" data-tab="lecturer" title="Lecturer Line — message the lecturer" aria-label="Lecturer Line">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 8.4 8.4 0 0 1-4-1L3 20l1.3-3.9a8.4 8.4 0 0 1-1-4A8.5 8.5 0 1 1 21 11.5Z"/></svg></span>
+        <span class="nav-label">Lecturer Line</span>
+      </a>
+      <a href="#myclass" data-tab="myclass" title="My Class — pick your unit and log in to see its schedule and assignments" aria-label="My Class">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span>
+        <span class="nav-label">My Class</span>
+      </a>
+      <a href="#workspace" data-tab="workspace" title="Lecturer Workspace — store and arrange notes and materials by institution" aria-label="Lecturer Workspace">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></svg></span>
+        <span class="nav-label">Workspace</span>
+      </a>
+      <a href="#board" data-tab="board" title="Classroom Board — post announcements" aria-label="Classroom Board">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h7"/></svg></span>
+        <span class="nav-label">Classroom Board</span>
+      </a>
+      <a href="#schedule" data-tab="schedule" title="Room Schedule — book the room" aria-label="Room Schedule">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></span>
+        <span class="nav-label">Room Schedule</span>
+      </a>
+      <a href="#contacts" data-tab="contacts" title="Contacts — call, WhatsApp or text a lecturer" aria-label="Contacts">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.5.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.4c.6 0 1 .4 1 1 0 1.2.2 2.4.6 3.5.1.4 0 .8-.2 1L6.6 10.8Z"/></svg></span>
+        <span class="nav-label">Contacts</span>
+      </a>
+      <a href="#progress" data-tab="progress" title="Class Progress — log what was covered" aria-label="Class Progress">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 7-8"/><path d="M14 7h6v6"/></svg></span>
+        <span class="nav-label">Class Progress</span>
+      </a>
+      <a href="#market" data-tab="market" title="Marketplace — list or find items, skills and interests" aria-label="Marketplace">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.4 11.6 12.4 3.6a2 2 0 0 0-1.4-.6H5a2 2 0 0 0-2 2v6a2 2 0 0 0 .6 1.4l8 8a2 2 0 0 0 2.8 0l6-6a2 2 0 0 0 0-2.8Z"/><circle cx="7.5" cy="7.5" r="1.4"/></svg></span>
+        <span class="nav-label">Marketplace</span>
+      </a>
+      <a href="#print" data-tab="print" title="Print & Binding — post or take printing, typing and binding jobs" aria-label="Print & Binding">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7"/></svg></span>
+        <span class="nav-label">Print &amp; Binding</span>
+      </a>
+      <a href="#bundles" data-tab="bundles" title="Data Bundles — buy data bundles from a classmate reseller" aria-label="Data Bundles">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5a16 16 0 0 1 20 0"/><path d="M5.5 12.5a11 11 0 0 1 13 0"/><path d="M9 16.5a6 6 0 0 1 6 0"/><circle cx="12" cy="20" r="1"/></svg></span>
+        <span class="nav-label">Data Bundles</span>
+      </a>
+    </nav>
+    <button type="button" class="role-pill" id="roleBtn" title="Change who you're posting as" aria-label="Change who you're posting as">
+      <span class="dot"></span>
+      <span class="role-pill-text"><span class="lbl">You're</span> <strong id="roleBtnLabel">Classmate</strong></span>
+    </button>
+  </aside>
+
+  <div class="content-area">
+    <div class="content-inner">
+      <p class="programme-label">Certificate in Purchasing &amp; Supplies Mgt — Y1 Sem 1</p>
+
+      <div class="stats-row">
+        <div class="stat-tile">
+          <p class="stat-label">Lecturer status</p>
+          <p class="stat-value" id="statPending">—</p>
+        </div>
+        <div class="stat-tile">
+          <p class="stat-label">Board posts</p>
+          <p class="stat-value" id="statBoard">0</p>
+        </div>
+        <div class="stat-tile">
+          <p class="stat-label">Next in room</p>
+          <p class="stat-value" id="statNext">—</p>
+        </div>
+      </div>
+
+      <main>
+        <!-- LECTURER LINE -->
+        <section id="panel-lecturer" class="panel">
+          <div class="hero-band">
+            <p class="hero-eyebrow">Certificate in Purchasing &amp; Supplies Mgt · Class Rep Portal</p>
+            <h1 class="hero-title">Never wonder if your lecturer's coming.</h1>
+            <p class="hero-tag">Send word to your lecturer, see if they've replied, and check what's booked in the room — all in one place.</p>
+            <div class="hero-actions">
+              <button type="button" class="hero-btn primary" id="heroOpenClass">Open my class</button>
+              <button type="button" class="hero-btn ghost-light" id="heroOpenRoom">Open my room</button>
+            </div>
+          </div>
+
+          <div class="card feature-card" id="lecturerStatusCard">
+            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
+            <div class="status-strip">
+              <div class="status-dot none" id="statusDot"></div>
+              <div class="status-text">
+                <div class="eyebrow">Current status</div>
+                <div class="msg" id="statusMsg">No word sent to the lecturer yet</div>
+                <div class="meta" id="statusMeta">Send the first update below</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card feature-card" id="lecturerSendCard">
+            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 8.4 8.4 0 0 1-4-1L3 20l1.3-3.9a8.4 8.4 0 0 1-1-4A8.5 8.5 0 1 1 21 11.5Z"/></svg></div>
+            <div class="section-head">
+              <div>
+                <h2>Send a line</h2>
+                <p id="lecturerSendSub">Visible to everyone on this page, lecturer included</p>
+              </div>
+            </div>
+            <div id="lecturerSendControls">
+              <div class="chips" id="templateChips"></div>
+              <form class="composer" id="lecturerForm">
+                <textarea id="lecturerText" maxlength="400" placeholder="e.g. We're all in LH-204, ready whenever you are" required></textarea>
+                <div class="btn-row">
+                  <button type="submit" class="btn" id="lecturerSendBtn">Send to lecturer</button>
+                </div>
+              </form>
+              <div class="conn-note" id="lecturerConnNote">Still connecting — your message will send once the board is reachable.</div>
+            </div>
+            <p class="link-caveat" id="lecturerSendRestricted" hidden>Only the Class Rep sends messages to the lecturer here, so the lecturer isn't getting texts from everyone. If something needs saying, tell your Class Rep and they'll send it.</p>
+          </div>
+
+          <div id="lecturerFeed" class="feed"></div>
+          <div id="lecturerEmpty" class="empty">
+            <strong>Nothing sent yet</strong>
+            Use a quick line above to tell the lecturer the class is ready, running late, or needs a change.
+          </div>
+        </section>
+
+        <!-- CLASSROOM BOARD -->
+        <section id="panel-board" class="panel" hidden>
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <h2>Post to the board</h2>
+                <p>Announcements and notes for your classmates</p>
+              </div>
+            </div>
+            <form class="composer" id="boardForm">
+              <textarea id="boardText" maxlength="500" placeholder="e.g. Assignment 2 deadline moved to Friday 5pm" required></textarea>
+              <div class="composer-row" style="justify-content: space-between; align-items: center;">
+                <label class="inline"><input type="checkbox" id="boardPin"> Pin to top</label>
+                <button type="submit" class="btn" id="boardSendBtn">Post</button>
+              </div>
+            </form>
+            <div class="conn-note" id="boardConnNote">Still connecting — your post will send once the board is reachable.</div>
+          </div>
+
+          <div id="boardFeed" class="feed"></div>
+          <div id="boardEmpty" class="empty">
+            <strong>The board is clear</strong>
+            Post the first announcement — a deadline, a room change, anything the class should know.
+          </div>
+        </section>
+
+        <!-- ROOM SCHEDULE -->
+        <section id="panel-schedule" class="panel" hidden>
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <h2>Book the room</h2>
+                <p>For the lecturer's tutorials, tests and practicals</p>
+              </div>
+            </div>
+            <form class="composer" id="scheduleForm">
+              <input type="text" id="schedTitle" maxlength="80" placeholder="Activity, e.g. CAT 1 — Chapter 3" required>
+              <div class="composer-row">
+                <select id="schedType">
+                  <option>Lecture</option>
+                  <option>Tutorial</option>
+                  <option>Practical / Lab</option>
+                  <option>Test / CAT</option>
+                  <option>Consultation</option>
+                  <option>Group work</option>
+                  <option>Other</option>
+                </select>
+                <input type="text" id="schedRoom" maxlength="30" placeholder="Room, e.g. LH-204" required>
+              </div>
+              <div class="composer-row">
+                <input type="date" id="schedDate" required>
+                <input type="time" id="schedStart" required>
+                <input type="time" id="schedEnd" required>
+              </div>
+              <div class="btn-row">
+                <button type="submit" class="btn" id="schedSendBtn">Add to schedule</button>
+              </div>
+            </form>
+            <div class="conn-note" id="schedConnNote">Still connecting — your booking will send once the board is reachable.</div>
+          </div>
+
+          <div id="scheduleFeed"></div>
+          <div id="scheduleEmpty" class="empty">
+            <strong>No bookings yet</strong>
+            Add a tutorial, test or practical so the class knows when the room is in use.
+          </div>
+        </section>
+
+        <!-- CONTACTS -->
+        <section id="panel-contacts" class="panel" hidden>
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <h2>Lecturer contacts</h2>
+                <p>Call, WhatsApp or text a reminder for each unit</p>
+              </div>
+            </div>
+            <p class="link-caveat" style="margin:0;">ClassLine can't place calls or send messages itself — each button hands off to your own phone's dialer, SMS or WhatsApp app, pre-filled, for you to send.</p>
+          </div>
+
+          <div id="contactsAllowed">
+            <div id="contactsFeed" class="feed"></div>
+            <div id="contactsEmpty" class="empty">
+              <strong>No lecturer numbers yet</strong>
+              Add a number below for any unit to enable one-tap reminders.
+            </div>
+          </div>
+          <div class="card" id="contactsRestricted" hidden>
+            <p class="link-caveat" style="margin:0;">Lecturer numbers and emails are kept to the Class Rep, so students aren't calling or texting lecturers directly. Switch your role to Class Rep to see this, or ask your rep.</p>
+          </div>
+        </section>
+
+        <!-- CLASS PROGRESS -->
+        <section id="panel-progress" class="panel" hidden>
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <h2>Class progress</h2>
+                <p>Lecturers log what they covered, so everyone knows where to start next time</p>
+              </div>
+            </div>
+          </div>
+
+          <div id="progressFeed" class="feed"></div>
+          <div id="progressEmpty" class="empty">
+            <strong>Loading units…</strong>
+            One card will appear per unit once the lecturer list loads.
+          </div>
+        </section>
+
+        <!-- LECTURER WORKSPACE -->
+        <section id="panel-workspace" class="panel" hidden>
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <h2>Lecturer workspace</h2>
+                <p>Store and arrange your notes, materials and links — encrypted, handy if you teach at more than one university or college</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" id="wsLockCard">
+            <div class="section-head"><div><h2 id="wsLockTitle">Workspace is locked</h2><p id="wsLockHint">Enter the workspace passphrase to decrypt and view these notes.</p></div></div>
+            <div class="composer">
+              <input type="password" id="wsPassphrase" placeholder="Workspace passphrase" autocomplete="off">
+              <div class="btn-row"><button type="button" class="btn" id="wsUnlockBtn">Unlock</button></div>
+            </div>
+            <p class="link-caveat" id="wsLockError" style="display:none; color: var(--danger);"></p>
+            <p class="link-caveat">Notes are encrypted with this passphrase before they're saved to the shared board — anyone without it only ever sees ciphertext. Lose the passphrase and these notes can't be recovered.</p>
+          </div>
+
+          <div id="wsUnlockedArea" hidden>
+            <div class="card">
+              <div class="btn-row" style="justify-content: flex-end;"><button type="button" class="btn ghost" id="wsLockBtn">Lock workspace</button></div>
+              <form class="composer" id="workspaceForm">
+                <div class="composer-row">
+                  <input type="text" id="wsInstitution" list="wsInstitutionList" maxlength="80" placeholder="Institution / college e.g. JKUAT" required>
+                  <select id="wsType">
+                    <option value="Note">Note</option>
+                    <option value="Link">Link</option>
+                    <option value="Reminder">Reminder</option>
+                  </select>
+                </div>
+                <datalist id="wsInstitutionList"></datalist>
+                <input type="text" id="wsTitle" maxlength="80" placeholder="Title e.g. Y2 Sem 1 — CED 0204 notes" required>
+                <input type="url" id="wsLink" maxlength="300" placeholder="Link (optional) e.g. a Drive/Docs URL">
+                <textarea id="wsContent" maxlength="500" placeholder="Details — where you left off, what's still due, anything to remember"></textarea>
+                <div class="btn-row"><button type="submit" class="btn" id="wsSendBtn">Save to workspace</button></div>
+              </form>
+              <div class="conn-note" id="wsConnNote">Still connecting — this will save once the board is reachable.</div>
+            </div>
+
+            <div id="workspaceFeed" class="feed"></div>
+            <div id="workspaceEmpty" class="empty">
+              <strong>Workspace is empty</strong>
+              Add a note, link or reminder above — group it under the institution it belongs to, so each college's material stays apart from the rest.
+            </div>
+          </div>
+        </section>
+
+        <!-- MARKETPLACE -->
+        <section id="panel-market" class="panel" hidden>
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <h2>Post a listing</h2>
+                <p>Sell, swap, or share an interest or skill — anyone on this page can see it</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" id="marketVerifyCard" hidden>
+            <div class="section-head"><div><h2>Verify to post</h2><p>Scan or attach a photo of your student ID and enter your registration number once — this is checked only on this device, each time you want to post</p></div></div>
+            <div class="composer">
+              <input type="text" id="marketRegNo" maxlength="40" placeholder="Registration / admission number">
+              <input type="file" id="marketIdPhoto" accept="image/*" capture="environment">
+              <p class="link-caveat" id="marketIdPhotoName"></p>
+              <div class="btn-row"><button type="button" class="btn" id="marketVerifyBtn">Verify &amp; unlock posting</button></div>
+            </div>
+            <p class="link-caveat" id="marketVerifyError" style="display:none; color: var(--danger);">Enter your reg number and attach a photo of your ID to continue.</p>
+            <p class="link-caveat">ClassLine can't check this against the school's real student records — scanning/attaching your ID just confirms you have one in hand before you can post. The photo stays on your device; it isn't uploaded or saved anywhere.</p>
+          </div>
+
+          <div id="marketComposerArea" hidden>
+            <div class="card">
+              <form class="composer" id="marketForm">
+                <input type="text" id="marketTitle" maxlength="80" placeholder="What is it? e.g. Scientific calculator, barely used" required>
+                <div class="composer-row">
+                  <select id="marketCategory">
+                    <option>Selling</option>
+                    <option>Looking for</option>
+                    <option>Service offered</option>
+                    <option>Tutoring</option>
+                    <option>Interest / hobby</option>
+                    <option>Other</option>
+                  </select>
+                  <input type="text" id="marketPrice" maxlength="30" placeholder="Price (optional)">
+                </div>
+                <textarea id="marketDesc" maxlength="400" placeholder="Add details — condition, when, how to reach you"></textarea>
+                <input type="text" id="marketContact" maxlength="20" placeholder="Phone (optional) — enables Call/WhatsApp">
+                <div class="btn-row">
+                  <button type="submit" class="btn" id="marketSendBtn">Post listing</button>
+                </div>
+              </form>
+              <div class="conn-note" id="marketConnNote">Still connecting — your listing will send once the board is reachable.</div>
+            </div>
+          </div>
+
+          <div id="marketFeed" class="feed"></div>
+          <div id="marketEmpty" class="empty">
+            <strong>Nothing posted yet</strong>
+            Be the first to list something — an item, a skill, or an interest.
+          </div>
+        </section>
+
+        <!-- PRINT & BINDING -->
+        <section id="panel-print" class="panel" hidden>
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <h2>Request a job</h2>
+                <p>Printing, typing or binding — post it here for someone to take on</p>
+              </div>
+            </div>
+            <form class="composer" id="printForm">
+              <textarea id="printDesc" maxlength="400" placeholder="What do you need? e.g. Type up 8 handwritten pages and spiral bind" required></textarea>
+              <div class="composer-row">
+                <select id="printType">
+                  <option>Printing</option>
+                  <option>Typing</option>
+                  <option>Binding</option>
+                  <option>Printing + Binding</option>
+                  <option>Typing + Printing</option>
+                  <option>Other</option>
+                </select>
+                <input type="text" id="printPages" maxlength="20" placeholder="Pages/copies (optional)">
+              </div>
+              <div class="composer-row">
+                <input type="date" id="printDeadline">
+                <input type="text" id="printContact" maxlength="20" placeholder="Your phone (optional)">
+              </div>
+              <div class="btn-row">
+                <button type="submit" class="btn" id="printSendBtn">Post job</button>
+              </div>
+            </form>
+            <div class="conn-note" id="printConnNote">Still connecting — your job will send once the board is reachable.</div>
+          </div>
+
+          <div id="printFeed" class="feed"></div>
+          <div id="printEmpty" class="empty">
+            <strong>No jobs posted</strong>
+            Post one above, or check back later for work you can take on.
+          </div>
+        </section>
+
+        <!-- DATA BUNDLES -->
+        <section id="panel-bundles" class="panel" hidden>
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <h2>Buy bundles</h2>
+                <p>Cheaper than hotspot — pay the seller directly by M-Pesa</p>
+              </div>
+            </div>
+            <p class="link-caveat" style="margin:0 0 12px;">ClassLine doesn't sell bundles or move money itself — it just displays the catalog. Pay the seller below however you two agree.</p>
+            <div class="seller-card">
+              <div class="seller-row">
+                <div class="seller-field">
+                  <span class="seller-label">Till number</span>
+                  <input type="text" id="sellerTill" class="mono" placeholder="e.g. 5516648">
+                </div>
+                <div class="seller-field">
+                  <span class="seller-label">Order / WhatsApp phone</span>
+                  <input type="text" id="sellerPhone" class="mono" placeholder="e.g. 0719250756">
+                </div>
+                <div class="seller-field">
+                  <span class="seller-label">Helpline (optional)</span>
+                  <input type="text" id="sellerHelpline" class="mono" placeholder="e.g. 0719250756">
+                </div>
+              </div>
+              <div class="btn-row"><button type="button" class="btn secondary" id="sellerSaveBtn">Save seller info</button></div>
+              <div class="howto">
+                <strong>How to buy</strong>
+                <ol>
+                  <li>Lipa na M-Pesa</li>
+                  <li>Buy Goods and Services</li>
+                  <li>Enter the Till Number above</li>
+                  <li>Enter the amount for your bundle</li>
+                  <li>Enter PIN and send</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <h2>Add a deal</h2>
+                <p>Group deals under a category, same as your price list</p>
+              </div>
+            </div>
+            <form class="composer" id="bundleForm">
+              <input type="text" id="bundleCategory" maxlength="40" placeholder="Category, e.g. Bingwa deals" required>
+              <input type="text" id="bundleLine" maxlength="80" placeholder="Deal, e.g. KSH 19 = 1GB (1HR) 11PM–7AM" required>
+              <div class="btn-row">
+                <button type="submit" class="btn" id="bundleSendBtn">Add deal</button>
+              </div>
+            </form>
+            <div class="conn-note" id="bundleConnNote">Still connecting — your listing will send once the board is reachable.</div>
+          </div>
+
+          <div id="bundlesFeed"></div>
+          <div id="bundlesEmpty" class="empty">
+            <strong>No bundles listed</strong>
+            Add your price list above, grouped by category.
+          </div>
+        </section>
+
+        <!-- MY CLASS (gated) -->
+        <section id="panel-myclass" class="panel" hidden>
+          <div class="card" id="myclassLocked">
+            <div class="section-head">
+              <div>
+                <h2>My Class</h2>
+                <p>Pick your unit and enter the class password to see its schedule and assignments</p>
+              </div>
+            </div>
+            <div class="btn-row"><button type="button" class="btn" id="myclassUnlockBtn">Open my class</button></div>
+          </div>
+
+          <div id="myclassUnlocked" hidden>
+            <div class="card">
+              <div class="section-head">
+                <div>
+                  <h2 id="myclassCourseTitle">—</h2>
+                  <p>Your unit's schedule and assignments</p>
+                </div>
+              </div>
+              <div class="btn-row">
+                <a class="act-btn mail" id="myclassEmailBtn" href="#" hidden>Email lecturer</a>
+                <button type="button" class="btn ghost" id="myclassSwitchBtn">Switch unit / log out</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="section-head"><div><h2>Schedule for this unit</h2></div></div>
+              <div id="myclassScheduleFeed"></div>
+              <div id="myclassScheduleEmpty" class="empty">
+                <strong>Nothing scheduled</strong>
+                No upcoming sessions found for this unit.
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="section-head"><div><h2>Assignments</h2></div></div>
+              <form class="composer" id="assignForm">
+                <input type="text" id="assignTitle" maxlength="80" placeholder="Assignment title" required>
+                <div class="composer-row">
+                  <input type="date" id="assignDue">
+                </div>
+                <textarea id="assignDesc" maxlength="400" placeholder="Details (optional)"></textarea>
+                <div class="btn-row"><button type="submit" class="btn" id="assignSendBtn">Post assignment</button></div>
+              </form>
+              <div id="assignFeed" class="feed"></div>
+              <div id="assignEmpty" class="empty">
+                <strong>No assignments yet</strong>
+                Post one above.
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <p class="note">Roles are self-identified for display only — anyone can post in any section. ClassLine keeps no record of who's "really" the rep or the lecturer, so use it in good faith.</p>
+    </div>
+  </div>
+</div>
+
+<div class="sheet-backdrop" id="roleBackdrop" hidden>
+  <div class="sheet" role="dialog" aria-label="Choose your role">
+    <h3>Who's posting?</h3>
+    <p class="hint">This just labels your posts — it isn't checked against anything.</p>
+    <div class="role-options" id="roleOptions"></div>
+    <div class="btn-row" style="margin-top: 14px;">
+      <button type="button" class="btn secondary" id="roleCancel">Done</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet-backdrop" id="classLoginBackdrop" hidden>
+  <div class="sheet" role="dialog" aria-label="Open my class">
+    <h3>Open my class</h3>
+    <p class="hint">Pick your unit and enter the class password to continue.</p>
+    <select id="courseSelect" style="margin-bottom:8px;"></select>
+    <input type="text" id="classPasswordInput" placeholder="Class password" style="margin-bottom:6px;">
+    <p class="link-caveat" id="classLoginError" style="color:var(--danger); display:none;">Incorrect password — ask your class rep.</p>
+    <p class="link-caveat" id="classLoginNoPwNote" style="display:none;">No password has been set yet — you can continue, and your rep can set one below.</p>
+    <div class="btn-row" style="margin-top: 10px;">
+      <button type="button" class="btn secondary" id="classLoginCancel">Cancel</button>
+      <button type="button" class="btn" id="classLoginSubmit">Unlock</button>
+    </div>
+    <div class="howto" style="margin-top: 16px;">
+      <strong>Class rep: manage password</strong>
+      <div class="composer" style="gap:6px; margin-top:6px;">
+        <input type="text" id="classPwCurrent" placeholder="Current password (leave blank if none set)">
+        <input type="text" id="classPwNew" placeholder="New password">
+        <p class="link-caveat" id="classPwError" style="color:var(--danger); display:none;">Current password is wrong.</p>
+        <div class="btn-row"><button type="button" class="btn ghost" id="classPwSaveBtn">Save password</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var ROLES = ["Class Rep", "Lecturer", "Classmate"];
+  var ROLE_CLASS = { "Class Rep": "rep", "Lecturer": "lec", "Classmate": "mate" };
+  var TEMPLATES = [
+    "Class is ready — please join whenever you can",
+    "We're in the room waiting on you",
+    "Running about 5 minutes late to start",
+    "Could we push the start back 10 minutes?",
+    "Checking in — are you able to make it today?"
+  ];
+
+  function qs(id) { return document.getElementById(id); }
+  function el(tag, attrs, kids) {
+    var node = document.createElement(tag);
+    attrs = attrs || {};
+    for (var k in attrs) {
+      if (k === "class") node.className = attrs[k];
+      else if (k === "text") node.textContent = attrs[k];
+      else node.setAttribute(k, attrs[k]);
+    }
+    (kids || []).forEach(function (c) { if (c) node.appendChild(c); });
+    return node;
+  }
+
+  var myRole = (function () {
+    try { return localStorage.getItem("classline_role") || "Classmate"; }
+    catch (e) { return "Classmate"; }
+  })();
+
+  function setRole(r) {
+    myRole = r;
+    try { localStorage.setItem("classline_role", r); } catch (e) {}
+    qs("roleBtnLabel").textContent = r;
+    renderRoleOptions();
+    updateLecturerSendVisibility();
+  }
+
+  function updateLecturerSendVisibility() {
+    var allowed = myRole === "Class Rep";
+    qs("lecturerSendControls").hidden = !allowed;
+    qs("lecturerSendRestricted").hidden = allowed;
+    qs("lecturerSendSub").textContent = allowed
+      ? "Visible to everyone on this page, lecturer included"
+      : "Only your Class Rep can send here";
+
+    var navContacts = document.querySelector('.tabs a[data-tab="contacts"]');
+    if (navContacts) navContacts.style.display = allowed ? "" : "none";
+    qs("contactsAllowed").hidden = !allowed;
+    qs("contactsRestricted").hidden = allowed;
+    if (!allowed && (location.hash.slice(1) || "lecturer") === "contacts") location.hash = "lecturer";
+  }
+
+  function anonId() {
+    try {
+      var v = localStorage.getItem("classline_anon");
+      if (!v) { v = "anon_" + Math.random().toString(36).slice(2, 10); localStorage.setItem("classline_anon", v); }
+      return v;
+    } catch (e) { return "anon_guest"; }
+  }
+
+  var db = null, user = null, myId = null;
+  var profileCache = {};
+
+  function fmtWhen(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    var now = new Date();
+    var sameDay = d.toDateString() === now.toDateString();
+    var time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    if (sameDay) return "Today " + time;
+    var y = new Date(now); y.setDate(y.getDate() - 1);
+    if (d.toDateString() === y.toDateString()) return "Yesterday " + time;
+    return d.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" }) + " " + time;
+  }
+
+  function fmtAgo(iso) {
+    var d = new Date(iso).getTime();
+    if (isNaN(d)) return "";
+    var s = Math.max(0, Math.round((Date.now() - d) / 1000));
+    if (s < 60) return "just now";
+    var m = Math.round(s / 60);
+    if (m < 60) return m + "m ago";
+    var h = Math.round(m / 60);
+    if (h < 24) return h + "h ago";
+    var dd = Math.round(h / 24);
+    return dd + "d ago";
+  }
+
+  function dayLabel(dateStr) {
+    var d = new Date(dateStr + "T00:00:00");
+    var now = new Date();
+    var t = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var that = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    var diff = Math.round((that - t) / 86400000);
+    if (diff === 0) return "Today";
+    if (diff === 1) return "Tomorrow";
+    if (diff === -1) return "Yesterday";
+    return d.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" });
+  }
+
+  function badge(role) {
+    return el("span", { class: "badge " + (ROLE_CLASS[role] || "mate"), text: role || "Classmate" });
+  }
+
+  function nameFor(authorId) {
+    var p = profileCache[authorId];
+    return (p && p.name) || "";
+  }
+
+  function resolveProfiles(ids) {
+    if (!user || !ids.length) return Promise.resolve();
+    return user.profiles(ids).then(function (ps) {
+      profileCache = Object.assign({}, profileCache, ps);
+    }).catch(function () {});
+  }
+
+  // ---------- sidebar expand/contract ----------
+  var sidebarEl = qs("sidebar");
+  var sideToggle = qs("sideToggle");
+  var sideToggleText = sideToggle.querySelector(".toggle-text");
+  var sidebarPinned = (function () {
+    try { return localStorage.getItem("classline_nav_expanded") === "1"; }
+    catch (e) { return false; }
+  })();
+
+  function setSidebarExpanded(expanded) {
+    sidebarPinned = expanded;
+    try { localStorage.setItem("classline_nav_expanded", expanded ? "1" : "0"); } catch (e) {}
+    sidebarEl.classList.toggle("expanded", expanded);
+    sideToggle.classList.toggle("rotated", expanded);
+    sideToggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+    var label = expanded ? "Collapse navigation" : "Expand navigation";
+    sideToggle.title = label;
+    sideToggle.setAttribute("aria-label", label);
+    sideToggleText.textContent = expanded ? "Collapse" : "Expand";
+  }
+  sideToggle.addEventListener("click", function () { setSidebarExpanded(!sidebarPinned); });
+  setSidebarExpanded(sidebarPinned);
+
+  // ---------- My Class (gated: course dropdown + password) ----------
+  var classAccessInfo = {};
+  var unlockedCourse = (function () {
+    try { return localStorage.getItem("classline_unlocked") === "1" ? (localStorage.getItem("classline_course") || null) : null; }
+    catch (e) { return null; }
+  })();
+  var assignDocs = [];
+
+  function codeSpaced(code) { return code ? code.replace(/^([A-Za-z]+)(\d+)$/, "$1 $2") : ""; }
+
+  function populateCourseSelect() {
+    var sel = qs("courseSelect");
+    if (!sel) return;
+    var current = sel.value;
+    sel.innerHTML = "";
+    contactDocs.forEach(function (c) {
+      var opt = document.createElement("option");
+      opt.value = c.code; opt.textContent = c.code + " — " + (c.unit || "");
+      sel.appendChild(opt);
+    });
+    if (current) sel.value = current;
+  }
+
+  function openClassLoginSheet() {
+    populateCourseSelect();
+    qs("classLoginError").style.display = "none";
+    qs("classPwError").style.display = "none";
+    qs("classPasswordInput").value = "";
+    var hasPw = !!(classAccessInfo && classAccessInfo.password);
+    qs("classLoginNoPwNote").style.display = hasPw ? "none" : "block";
+    qs("classLoginBackdrop").hidden = false;
+  }
+  qs("classLoginCancel").addEventListener("click", function () { qs("classLoginBackdrop").hidden = true; });
+  qs("classLoginBackdrop").addEventListener("click", function (e) { if (e.target === qs("classLoginBackdrop")) qs("classLoginBackdrop").hidden = true; });
+
+  qs("classLoginSubmit").addEventListener("click", function () {
+    var code = qs("courseSelect").value;
+    var pw = qs("classPasswordInput").value;
+    var required = classAccessInfo.password || "";
+    if (required && pw !== required) {
+      qs("classLoginError").style.display = "block";
+      return;
+    }
+    qs("classLoginError").style.display = "none";
+    unlockedCourse = code;
+    try { localStorage.setItem("classline_unlocked", "1"); localStorage.setItem("classline_course", code); } catch (e) {}
+    qs("classLoginBackdrop").hidden = true;
+    location.hash = "myclass";
+    renderMyClass();
+  });
+
+  qs("classPwSaveBtn").addEventListener("click", function () {
+    var cur = qs("classPwCurrent").value;
+    var next = qs("classPwNew").value.trim();
+    var existing = classAccessInfo.password || "";
+    if (existing && cur !== existing) {
+      qs("classPwError").style.display = "block";
+      return;
+    }
+    qs("classPwError").style.display = "none";
+    if (!db) return;
+    db.collection("classAccess").doc("info").set({ password: next }).catch(function () {});
+    qs("classPwCurrent").value = ""; qs("classPwNew").value = "";
+  });
+
+  qs("myclassUnlockBtn").addEventListener("click", openClassLoginSheet);
+  qs("myclassSwitchBtn").addEventListener("click", function () {
+    unlockedCourse = null;
+    try { localStorage.removeItem("classline_unlocked"); localStorage.removeItem("classline_course"); } catch (e) {}
+    renderMyClass();
+  });
+
+  function renderMyClass() {
+    var locked = qs("myclassLocked"), unlocked = qs("myclassUnlocked");
+    if (!locked) return;
+    if (unlockedCourse) {
+      locked.hidden = true; unlocked.hidden = false;
+      var c = contactDocs.find(function (x) { return x.code === unlockedCourse; });
+      qs("myclassCourseTitle").textContent = c ? (c.code + " — " + c.unit) : unlockedCourse;
+      var emailBtn = qs("myclassEmailBtn");
+      if (c && c.email) {
+        emailBtn.href = "mailto:" + c.email + "?subject=" + encodeURIComponent(c.code + " — question") + "&body=" + encodeURIComponent("Hi " + (c.lecturer || "") + ",\n\n");
+        emailBtn.hidden = false;
+      } else {
+        emailBtn.hidden = true;
+      }
+      renderMyClassSchedule();
+      renderAssignments();
+    } else {
+      locked.hidden = false; unlocked.hidden = true;
+    }
+  }
+
+  function renderMyClassSchedule() {
+    var wrap = qs("myclassScheduleFeed");
+    wrap.innerHTML = "";
+    if (!unlockedCourse) return;
+    var prefix = codeSpaced(unlockedCourse);
+    var filtered = schedDocs.filter(function (b) { return b.title && b.title.indexOf(prefix) === 0; });
+    qs("myclassScheduleEmpty").hidden = filtered.length > 0;
+    var now = new Date();
+    var byDay = {}; var order = [];
+    filtered.forEach(function (b) { if (!byDay[b.date]) { byDay[b.date] = []; order.push(b.date); } byDay[b.date].push(b); });
+    order.forEach(function (date) {
+      wrap.appendChild(el("div", { class: "day-head", text: dayLabel(date) }));
+      byDay[date].forEach(function (b) {
+        var endDt = new Date(date + "T" + b.endTime);
+        var past = endDt < now;
+        wrap.appendChild(el("div", { class: "item" + (past ? " past" : "") }, [
+          el("div", { class: "item-top" }, [
+            el("div", { class: "who" }, [el("span", { class: "booking-room mono", text: b.room })]),
+            el("span", { class: "booking-time mono", text: b.startTime + "–" + b.endTime })
+          ]),
+          el("div", { class: "item-text", text: b.title })
+        ]));
+      });
+    });
+  }
+
+  function renderAssignments() {
+    var ids = assignDocs.filter(function (a) { return a.code === unlockedCourse; }).map(function (a) { return a.authorId; }).filter(Boolean);
+    resolveProfiles(Array.from(new Set(ids))).then(renderAssignmentsList);
+    renderAssignmentsList();
+  }
+
+  function renderAssignmentsList() {
+    var feed = qs("assignFeed");
+    feed.innerHTML = "";
+    var filtered = assignDocs.filter(function (a) { return a.code === unlockedCourse; });
+    qs("assignEmpty").hidden = filtered.length > 0;
+    filtered.forEach(function (a) {
+      var mine = a.authorId === myId;
+      var kids = [
+        el("div", { class: "item-top" }, [
+          el("div", { class: "who" }, [el("span", { class: "name", text: nameFor(a.authorId) })]),
+          el("span", { class: "when mono", text: fmtWhen(a.createdAt) })
+        ]),
+        el("div", { class: "item-text", text: a.title + (a.dueDate ? " — due " + dayLabel(a.dueDate) : "") })
+      ];
+      if (a.desc) kids.push(el("div", { class: "item-text", text: a.desc }));
+      if (mine) {
+        var actions = el("div", { class: "item-actions" });
+        var delBtn = el("button", { type: "button", class: "btn danger-ghost", text: "Remove" });
+        delBtn.addEventListener("click", function () { removeDoc("assignments", a.id); });
+        actions.appendChild(delBtn);
+        kids.push(actions);
+      }
+      feed.appendChild(el("div", { class: "item" + (mine ? " mine" : "") }, kids));
+    });
+  }
+
+  qs("assignForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (!unlockedCourse) return;
+    var title = qs("assignTitle").value.trim();
+    if (!title) return;
+    var due = qs("assignDue").value;
+    var desc = qs("assignDesc").value.trim();
+    var btn = qs("assignSendBtn");
+    btn.disabled = true;
+    getMyId().then(function () {
+      if (!db) { btn.disabled = false; return; }
+      return db.collection("assignments").add({
+        code: unlockedCourse, title: title, dueDate: due, desc: desc,
+        role: myRole, authorId: myId, createdAt: new Date().toISOString()
+      }).then(function () {
+        qs("assignTitle").value = ""; qs("assignDue").value = ""; qs("assignDesc").value = "";
+      }).catch(function () {}).then(function () { btn.disabled = false; });
+    });
+  });
+
+  // ---------- Lecturer Line hero actions ----------
+  qs("heroOpenClass").addEventListener("click", function () {
+    if (unlockedCourse) { location.hash = "myclass"; return; }
+    openClassLoginSheet();
+  });
+  qs("heroOpenRoom").addEventListener("click", function () {
+    location.hash = "schedule";
+  });
+
+  // ---------- tabs ----------
+  var TABS = ["lecturer", "board", "schedule", "contacts", "progress", "workspace", "market", "print", "bundles", "myclass"];
+  function showTab(name) {
+    if (TABS.indexOf(name) === -1) name = "lecturer";
+    TABS.forEach(function (t) {
+      qs("panel-" + t).hidden = t !== name;
+    });
+    document.querySelectorAll(".tabs a").forEach(function (a) {
+      a.classList.toggle("active", a.getAttribute("data-tab") === name);
+    });
+  }
+  window.addEventListener("hashchange", function () { showTab(location.hash.slice(1)); });
+
+  // ---------- role sheet ----------
+  function renderRoleOptions() {
+    var wrap = qs("roleOptions");
+    wrap.innerHTML = "";
+    ROLES.forEach(function (r) {
+      var opt = el("div", { class: "role-opt" + (r === myRole ? " selected" : ""), role: "button", tabindex: "0" }, [
+        el("span", { text: r }),
+        el("span", { class: "check", text: "✓" })
+      ]);
+      opt.addEventListener("click", function () { setRole(r); });
+      wrap.appendChild(opt);
+    });
+  }
+  qs("roleBtn").addEventListener("click", function () { qs("roleBackdrop").hidden = false; });
+  qs("roleCancel").addEventListener("click", function () { qs("roleBackdrop").hidden = true; });
+  qs("roleBackdrop").addEventListener("click", function (e) { if (e.target === qs("roleBackdrop")) qs("roleBackdrop").hidden = true; });
+
+  // ---------- quick templates ----------
+  var chipsWrap = qs("templateChips");
+  TEMPLATES.forEach(function (t) {
+    var c = el("button", { type: "button", class: "chip", text: t });
+    c.addEventListener("click", function () {
+      qs("lecturerText").value = t;
+      qs("lecturerText").focus();
+    });
+    chipsWrap.appendChild(c);
+  });
+
+  // ---------- generic write helper ----------
+  function setSending(btn, note, sending) {
+    btn.disabled = sending;
+    note.classList.toggle("show", sending && !db);
+  }
+
+  var myIdPromise = null;
+  function getMyId() {
+    if (myIdPromise) return myIdPromise;
+    myIdPromise = (user ? user.id().catch(function () { return null; }) : Promise.resolve(null)).then(function (id) {
+      myId = id || anonId();
+      return myId;
+    });
+    return myIdPromise;
+  }
+
+  // ---------- Lecturer Line ----------
+  var lecturerDocs = [];
+  function renderLecturer() {
+    var ids = lecturerDocs.map(function (m) { return m.authorId; }).filter(Boolean);
+    resolveProfiles(Array.from(new Set(ids))).then(renderLecturerList);
+    renderLecturerList();
+
+    qs("lecturerEmpty").hidden = lecturerDocs.length > 0;
+
+    var latestToLecturer = lecturerDocs.find(function (m) { return m.role !== "Lecturer"; });
+    var statPending = qs("statPending");
+    if (latestToLecturer) {
+      var dot = qs("statusDot");
+      dot.className = "status-dot " + (latestToLecturer.status === "acknowledged" ? "ack" : "pending");
+      qs("statusMsg").textContent = latestToLecturer.text;
+      qs("statusMeta").textContent = (latestToLecturer.status === "acknowledged" ? "Seen by lecturer · " : "Awaiting lecturer · ") + fmtAgo(latestToLecturer.createdAt);
+      if (statPending) statPending.textContent = latestToLecturer.status === "acknowledged" ? "Seen" : "Awaiting reply";
+    } else {
+      qs("statusDot").className = "status-dot none";
+      qs("statusMsg").textContent = "No word sent to the lecturer yet";
+      qs("statusMeta").textContent = "Send the first update below";
+      if (statPending) statPending.textContent = "No updates";
+    }
+  }
+
+  function renderLecturerList() {
+    var feed = qs("lecturerFeed");
+    feed.innerHTML = "";
+    lecturerDocs.forEach(function (m) {
+      var mine = m.authorId === myId;
+      var item = el("div", { class: "item" + (mine ? " mine" : "") }, [
+        el("div", { class: "item-top" }, [
+          el("div", { class: "who" }, [
+            badge(m.role),
+            el("span", { class: "name", text: nameFor(m.authorId) })
+          ]),
+          el("span", { class: "when mono", text: fmtWhen(m.createdAt) })
+        ]),
+        el("div", { class: "item-text", text: m.text })
+      ]);
+
+      var actions = el("div", { class: "item-actions" });
+      if (m.role !== "Lecturer") {
+        actions.appendChild(el("span", { class: "chip-status " + (m.status === "acknowledged" ? "ack" : "pending"), text: m.status === "acknowledged" ? "Seen" : "Awaiting lecturer" }));
+      }
+      if (m.role !== "Lecturer" && m.status !== "acknowledged" && myRole === "Lecturer") {
+        var ackBtn = el("button", { type: "button", class: "btn ghost", text: "Mark as seen" });
+        ackBtn.addEventListener("click", function () { acknowledge(m.id); });
+        actions.appendChild(ackBtn);
+      }
+      if (mine) {
+        var delBtn = el("button", { type: "button", class: "btn danger-ghost", text: "Remove" });
+        delBtn.addEventListener("click", function () { removeDoc("messages", m.id); });
+        actions.appendChild(delBtn);
+      }
+      if (actions.children.length) item.appendChild(actions);
+      feed.appendChild(item);
+    });
+  }
+
+  function acknowledge(id) {
+    if (!db) return;
+    getMyId().then(function () {
+      db.collection("messages").doc(id).update({ status: "acknowledged", acknowledgedBy: myId, acknowledgedAt: new Date().toISOString() }).catch(function () {});
+    });
+  }
+
+  function removeDoc(coll, id) {
+    if (!db) return;
+    db.collection(coll).doc(id).delete().catch(function () {});
+  }
+
+  qs("lecturerForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (myRole !== "Class Rep") return;
+    var text = qs("lecturerText").value.trim();
+    if (!text) return;
+    var btn = qs("lecturerSendBtn"), note = qs("lecturerConnNote");
+    setSending(btn, note, true);
+    getMyId().then(function () {
+      if (!db) { setSending(btn, note, false); note.classList.add("show"); return; }
+      return db.collection("messages").add({
+        text: text, role: myRole, authorId: myId,
+        createdAt: new Date().toISOString(), status: "pending"
+      }).then(function () {
+        qs("lecturerText").value = "";
+      }).catch(function () {}).then(function () { setSending(btn, note, false); });
+    });
+  });
+
+  // ---------- Classroom Board ----------
+  var boardDocs = [];
+  function renderBoard() {
+    var ids = boardDocs.map(function (m) { return m.authorId; }).filter(Boolean);
+    resolveProfiles(Array.from(new Set(ids))).then(renderBoardList);
+    renderBoardList();
+    qs("boardEmpty").hidden = boardDocs.length > 0;
+    var statBoard = qs("statBoard");
+    if (statBoard) statBoard.textContent = String(boardDocs.length);
+  }
+
+  function renderBoardList() {
+    var feed = qs("boardFeed");
+    feed.innerHTML = "";
+    var pinned = boardDocs.filter(function (m) { return m.pinned; });
+    var rest = boardDocs.filter(function (m) { return !m.pinned; });
+    pinned.concat(rest).forEach(function (m) {
+      var mine = m.authorId === myId;
+      var item = el("div", { class: "item" + (mine ? " mine" : "") }, [
+        el("div", { class: "item-top" }, [
+          el("div", { class: "who" }, [
+            badge(m.role),
+            el("span", { class: "name", text: nameFor(m.authorId) }),
+            m.pinned ? el("span", { class: "pin-flag", text: "📌 Pinned" }) : null
+          ]),
+          el("span", { class: "when mono", text: fmtWhen(m.createdAt) })
+        ]),
+        el("div", { class: "item-text", text: m.text })
+      ]);
+      if (mine) {
+        var actions = el("div", { class: "item-actions" });
+        var delBtn = el("button", { type: "button", class: "btn danger-ghost", text: "Remove" });
+        delBtn.addEventListener("click", function () { removeDoc("announcements", m.id); });
+        actions.appendChild(delBtn);
+        item.appendChild(actions);
+      }
+      feed.appendChild(item);
+    });
+  }
+
+  qs("boardForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var text = qs("boardText").value.trim();
+    if (!text) return;
+    var pinned = qs("boardPin").checked;
+    var btn = qs("boardSendBtn"), note = qs("boardConnNote");
+    setSending(btn, note, true);
+    getMyId().then(function () {
+      if (!db) { setSending(btn, note, false); note.classList.add("show"); return; }
+      return db.collection("announcements").add({
+        text: text, role: myRole, authorId: myId, pinned: pinned,
+        createdAt: new Date().toISOString()
+      }).then(function () {
+        qs("boardText").value = "";
+        qs("boardPin").checked = false;
+      }).catch(function () {}).then(function () { setSending(btn, note, false); });
+    });
+  });
+
+  // ---------- Room Schedule ----------
+  var schedDocs = [];
+  function renderSchedule() {
+    var ids = schedDocs.map(function (m) { return m.bookedBy; }).filter(Boolean);
+    resolveProfiles(Array.from(new Set(ids))).then(renderScheduleList);
+    renderScheduleList();
+    qs("scheduleEmpty").hidden = schedDocs.length > 0;
+
+    var statNext = qs("statNext");
+    if (statNext) {
+      var now = new Date();
+      var next = schedDocs.find(function (b) { return new Date(b.date + "T" + b.endTime) >= now; });
+      statNext.textContent = next ? (next.room + " · " + next.startTime) : "—";
+    }
+  }
+
+  function renderScheduleList() {
+    var wrap = qs("scheduleFeed");
+    wrap.innerHTML = "";
+    var now = new Date();
+    var byDay = {};
+    var order = [];
+    schedDocs.forEach(function (b) {
+      if (!byDay[b.date]) { byDay[b.date] = []; order.push(b.date); }
+      byDay[b.date].push(b);
+    });
+    order.forEach(function (date) {
+      wrap.appendChild(el("div", { class: "day-head", text: dayLabel(date) }));
+      byDay[date].forEach(function (b) {
+        var endDt = new Date(date + "T" + b.endTime);
+        var past = endDt < now;
+        var item = el("div", { class: "item" + (past ? " past" : "") }, [
+          el("div", { class: "item-top" }, [
+            el("div", { class: "who" }, [
+              badge(b.type),
+              el("span", { class: "booking-room mono", text: b.room })
+            ]),
+            el("span", { class: "booking-time mono", text: b.startTime + "–" + b.endTime })
+          ]),
+          el("div", { class: "item-text", text: b.title }),
+          el("div", { class: "when", text: "Booked by " + b.role + (nameFor(b.bookedBy) ? " · " + nameFor(b.bookedBy) : "") })
+        ]);
+        if (b.bookedBy === myId) {
+          var actions = el("div", { class: "item-actions" });
+          var delBtn = el("button", { type: "button", class: "btn danger-ghost", text: "Remove" });
+          delBtn.addEventListener("click", function () { removeDoc("bookings", b.id); });
+          actions.appendChild(delBtn);
+          item.appendChild(actions);
+        }
+        wrap.appendChild(item);
+      });
+    });
+  }
+
+  qs("scheduleForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var title = qs("schedTitle").value.trim();
+    var type = qs("schedType").value;
+    var room = qs("schedRoom").value.trim();
+    var date = qs("schedDate").value;
+    var start = qs("schedStart").value;
+    var end = qs("schedEnd").value;
+    if (!title || !room || !date || !start || !end) return;
+    var btn = qs("schedSendBtn"), note = qs("schedConnNote");
+    setSending(btn, note, true);
+    getMyId().then(function () {
+      if (!db) { setSending(btn, note, false); note.classList.add("show"); return; }
+      return db.collection("bookings").add({
+        title: title, type: type, room: room, date: date, startTime: start, endTime: end,
+        sortKey: date + "T" + start, bookedBy: myId, role: myRole,
+        createdAt: new Date().toISOString()
+      }).then(function () {
+        qs("schedTitle").value = "";
+        qs("schedRoom").value = "";
+      }).catch(function () {}).then(function () { setSending(btn, note, false); });
+    });
+  });
+
+  // ---------- Lecturer Contacts ----------
+  var contactDocs = [];
+
+  function normalizePhone(raw) {
+    if (!raw) return "";
+    var d = String(raw).replace(/[^\d+]/g, "");
+    if (!d) return "";
+    if (d.indexOf("+") === 0) return d;
+    if (d.indexOf("254") === 0) return "+" + d;
+    if (d.indexOf("0") === 0) return "+254" + d.slice(1);
+    return "+" + d;
+  }
+
+  function reminderText(c) {
+    return "Hi " + (c.lecturer || "") + ", this is a reminder from the class rep that " + c.unit + " is coming up in 13C. Kindly confirm you're able to join. Thank you.";
+  }
+
+  function copyToClipboard(text, btn) {
+    var orig = btn.textContent;
+    function done() { btn.textContent = "Copied"; setTimeout(function () { btn.textContent = orig; }, 1200); }
+    function fallback() {
+      var ta = document.createElement("textarea");
+      ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      try { document.execCommand("copy"); } catch (e) {}
+      document.body.removeChild(ta);
+    }
+    try {
+      navigator.clipboard.writeText(text).then(done).catch(function () { fallback(); done(); });
+    } catch (e) { fallback(); done(); }
+  }
+
+  function saveLecturerPhone(code, phone) {
+    if (!db) return;
+    db.collection("lecturers").doc(code).update({ phone: phone }).catch(function () {
+      db.collection("lecturers").doc(code).set({ code: code, phone: phone }).catch(function () {});
+    });
+  }
+
+  function saveLecturerEmail(code, email) {
+    if (!db) return;
+    db.collection("lecturers").doc(code).update({ email: email }).catch(function () {
+      db.collection("lecturers").doc(code).set({ code: code, email: email }).catch(function () {});
+    });
+  }
+
+  function contactCard(c) {
+    var normalized = normalizePhone(c.phone);
+    var hasPhone = !!normalized;
+    var hasEmail = !!(c.email && c.email.indexOf("@") > 0);
+    var msg = reminderText(c);
+
+    var phoneInput = el("input", { type: "text", class: "mono", placeholder: "07XXXXXXXX", value: c.phone || "" });
+    var saveBtn = el("button", { type: "button", class: "btn ghost", text: "Save" });
+    saveBtn.addEventListener("click", function () { saveLecturerPhone(c.code, phoneInput.value.trim()); });
+
+    var copyBtn = el("button", { type: "button", class: "btn ghost", text: "Copy" });
+    copyBtn.addEventListener("click", function () {
+      var toCopy = normalized || (c.phone || "");
+      if (toCopy) copyToClipboard(toCopy, copyBtn);
+    });
+
+    var emailInput = el("input", { type: "email", class: "mono", placeholder: "lecturer@example.com", value: c.email || "" });
+    var saveEmailBtn = el("button", { type: "button", class: "btn ghost", text: "Save" });
+    saveEmailBtn.addEventListener("click", function () { saveLecturerEmail(c.code, emailInput.value.trim()); });
+
+    var callBtn = el("a", { class: "act-btn call" + (hasPhone ? "" : " disabled"), href: hasPhone ? ("tel:" + normalized) : "#", text: "Call" });
+    var waBtn = el("a", { class: "act-btn whatsapp" + (hasPhone ? "" : " disabled"), href: hasPhone ? ("https://wa.me/" + normalized.replace("+", "") + "?text=" + encodeURIComponent(msg)) : "#", target: "_blank", rel: "noopener", text: "WhatsApp" });
+    var smsBtn = el("a", { class: "act-btn sms" + (hasPhone ? "" : " disabled"), href: hasPhone ? ("sms:" + normalized + "?&body=" + encodeURIComponent(msg)) : "#", text: "SMS" });
+    var mailBtn = el("a", { class: "act-btn mail" + (hasEmail ? "" : " disabled"), href: hasEmail ? ("mailto:" + c.email + "?subject=" + encodeURIComponent(c.code + " — " + (c.unit || "")) + "&body=" + encodeURIComponent(msg)) : "#", text: "Email" });
+    if (!hasPhone) {
+      [callBtn, waBtn, smsBtn].forEach(function (b) { b.addEventListener("click", function (e) { e.preventDefault(); }); });
+    }
+    if (!hasEmail) mailBtn.addEventListener("click", function (e) { e.preventDefault(); });
+
+    return el("div", { class: "card contact-card" }, [
+      el("div", { class: "contact-top" }, [
+        el("div", {}, [
+          el("div", { class: "contact-unit", text: c.code }),
+          el("div", { class: "contact-name", text: c.lecturer || "Lecturer" })
+        ])
+      ]),
+      el("div", { class: "phone-edit-row" }, [phoneInput, saveBtn, copyBtn]),
+      el("div", { class: "phone-edit-row" }, [emailInput, saveEmailBtn]),
+      el("div", { class: "contact-actions" }, [callBtn, waBtn, smsBtn, mailBtn]),
+      el("div", { class: "link-caveat", text: hasPhone || hasEmail ? "Opens your own phone or email app — works on a device that supports it." : "Add a number or email above to enable Call, WhatsApp, SMS and Email." })
+    ]);
+  }
+
+  function renderContacts() {
+    var wrap = qs("contactsFeed");
+    wrap.innerHTML = "";
+    qs("contactsEmpty").hidden = contactDocs.length > 0;
+    contactDocs.forEach(function (c) { wrap.appendChild(contactCard(c)); });
+  }
+
+  // ---------- Class Progress ----------
+  var progressByCode = {};
+
+  function postProgress(c, topic, next) {
+    if (!db) return;
+    getMyId().then(function () {
+      return db.collection("progress").add({
+        code: c.code, unit: c.unit, topicCovered: topic, nextStart: next,
+        role: myRole, authorId: myId, createdAt: new Date().toISOString()
+      });
+    }).catch(function () {});
+  }
+
+  function progressCard(c) {
+    var entries = progressByCode[c.code] || [];
+    var latest = entries[0];
+
+    var banner;
+    if (latest) {
+      banner = el("div", { class: "progress-banner" }, [
+        el("div", { class: "eyebrow", text: "Start here next session" }),
+        el("div", { class: "next-text", text: latest.nextStart || "(no starting point given — see last topic below)" }),
+        el("div", { class: "meta", text: "Last covered: " + (latest.topicCovered || "—") + " · " + fmtWhen(latest.createdAt) })
+      ]);
+    } else {
+      banner = el("div", { class: "progress-banner" }, [
+        el("div", { class: "eyebrow", text: "No update yet" }),
+        el("div", { class: "next-text", text: "Nothing posted for this unit yet" })
+      ]);
+    }
+
+    var historyEl = el("div", { class: "progress-history" });
+    entries.slice(1, 4).forEach(function (en) {
+      var row = el("div", { class: "progress-entry" });
+      row.appendChild(document.createTextNode(fmtWhen(en.createdAt) + " — "));
+      row.appendChild(el("strong", { text: en.topicCovered || "" }));
+      historyEl.appendChild(row);
+    });
+
+    var topicInput = el("textarea", { placeholder: "What did you cover today? e.g. Chapter 4 — Inventory valuation methods", maxlength: "300" });
+    var nextInput = el("textarea", { placeholder: "Where should the next session start? e.g. Start with FIFO vs LIFO examples", maxlength: "300" });
+    var saveBtn = el("button", { type: "button", class: "btn", text: "Save update" });
+    var composer = el("div", { class: "progress-composer" }, [topicInput, nextInput, saveBtn]);
+    saveBtn.addEventListener("click", function () {
+      var topic = topicInput.value.trim(), next = nextInput.value.trim();
+      if (!topic && !next) return;
+      postProgress(c, topic, next);
+      topicInput.value = ""; nextInput.value = "";
+      composer.classList.remove("open");
+    });
+
+    var toggleBtn = el("button", { type: "button", class: "btn ghost", text: "Post update" });
+    toggleBtn.addEventListener("click", function () { composer.classList.toggle("open"); });
+
+    var actionsRow = el("div", { class: "btn-row" }, [toggleBtn]);
+    var hasEmail = !!(c.email && c.email.indexOf("@") > 0);
+    if (hasEmail) {
+      actionsRow.appendChild(el("a", {
+        class: "act-btn mail", text: "Email lecturer",
+        href: "mailto:" + c.email + "?subject=" + encodeURIComponent(c.code + " — class progress") + "&body=" + encodeURIComponent("Hi " + (c.lecturer || "") + ",\n\n")
+      }));
+    }
+
+    var card = el("div", { class: "card contact-card" }, [
+      el("div", { class: "contact-top" }, [
+        el("div", {}, [
+          el("div", { class: "contact-unit", text: c.code }),
+          el("div", { class: "contact-name", text: c.unit })
+        ])
+      ]),
+      banner
+    ]);
+    if (historyEl.children.length) card.appendChild(historyEl);
+    card.appendChild(actionsRow);
+    card.appendChild(composer);
+    return card;
+  }
+
+  function renderProgress() {
+    var wrap = qs("progressFeed");
+    wrap.innerHTML = "";
+    qs("progressEmpty").hidden = contactDocs.length > 0;
+    contactDocs.forEach(function (c) { wrap.appendChild(progressCard(c)); });
+  }
+
+  // ---------- Marketplace ----------
+  var marketDocs = [];
+  function renderMarket() {
+    var ids = marketDocs.map(function (m) { return m.authorId; }).filter(Boolean);
+    resolveProfiles(Array.from(new Set(ids))).then(renderMarketList);
+    renderMarketList();
+    qs("marketEmpty").hidden = marketDocs.length > 0;
+  }
+
+  function renderMarketList() {
+    var feed = qs("marketFeed");
+    feed.innerHTML = "";
+    marketDocs.forEach(function (m) {
+      var mine = m.authorId === myId;
+      var normalized = normalizePhone(m.contact);
+      var kids = [
+        el("div", { class: "item-top" }, [
+          el("div", { class: "who" }, [
+            el("span", { class: "badge mate", text: m.category || "Listing" }),
+            el("span", { class: "name", text: nameFor(m.authorId) })
+          ]),
+          el("span", { class: "when mono", text: fmtWhen(m.createdAt) })
+        ]),
+        el("div", { class: "item-text", text: m.title + (m.price ? " — " + m.price : "") })
+      ];
+      if (m.desc) kids.push(el("div", { class: "item-text", text: m.desc }));
+
+      var actions = el("div", { class: "item-actions" });
+      if (normalized) {
+        actions.appendChild(el("a", { class: "act-btn call", href: "tel:" + normalized, text: "Call" }));
+        actions.appendChild(el("a", {
+          class: "act-btn whatsapp", target: "_blank", rel: "noopener",
+          href: "https://wa.me/" + normalized.replace("+", "") + "?text=" + encodeURIComponent("Hi, I saw your listing on ClassLine: \"" + m.title + "\". Is it still available?"),
+          text: "WhatsApp"
+        }));
+      }
+      if (mine) {
+        var delBtn = el("button", { type: "button", class: "btn danger-ghost", text: "Remove" });
+        delBtn.addEventListener("click", function () { removeDoc("marketplace", m.id); });
+        actions.appendChild(delBtn);
+      }
+      if (actions.children.length) kids.push(actions);
+      feed.appendChild(el("div", { class: "item" + (mine ? " mine" : "") }, kids));
+    });
+  }
+
+  // ---------- Marketplace: verify-to-post gate ----------
+  var marketVerified = false;
+
+  function updateMarketGate() {
+    qs("marketComposerArea").hidden = !marketVerified;
+    qs("marketVerifyCard").hidden = marketVerified;
+  }
+
+  qs("marketIdPhoto").addEventListener("change", function () {
+    var f = this.files && this.files[0];
+    qs("marketIdPhotoName").textContent = f ? ("Attached: " + f.name) : "";
+  });
+
+  qs("marketVerifyBtn").addEventListener("click", function () {
+    var reg = qs("marketRegNo").value.trim();
+    var hasPhoto = qs("marketIdPhoto").files && qs("marketIdPhoto").files.length > 0;
+    if (!reg || !hasPhoto) { qs("marketVerifyError").style.display = "block"; return; }
+    qs("marketVerifyError").style.display = "none";
+    getMyId().then(function () {
+      if (!db) return;
+      db.collection("data/users/" + myId).doc("verification").set({
+        regNo: reg, verifiedAt: new Date().toISOString()
+      }).then(function () {
+        marketVerified = true;
+        updateMarketGate();
+      }).catch(function () {});
+    });
+  });
+
+  qs("marketForm").addEventListener("submit", function (e) {
+    if (!marketVerified) { e.preventDefault(); return; }
+    e.preventDefault();
+    var title = qs("marketTitle").value.trim();
+    if (!title) return;
+    var category = qs("marketCategory").value;
+    var price = qs("marketPrice").value.trim();
+    var desc = qs("marketDesc").value.trim();
+    var contact = qs("marketContact").value.trim();
+    var btn = qs("marketSendBtn"), note = qs("marketConnNote");
+    setSending(btn, note, true);
+    getMyId().then(function () {
+      if (!db) { setSending(btn, note, false); note.classList.add("show"); return; }
+      return db.collection("marketplace").add({
+        title: title, category: category, price: price, desc: desc, contact: contact,
+        role: myRole, authorId: myId, createdAt: new Date().toISOString()
+      }).then(function () {
+        qs("marketTitle").value = ""; qs("marketPrice").value = ""; qs("marketDesc").value = ""; qs("marketContact").value = "";
+      }).catch(function () {}).then(function () { setSending(btn, note, false); });
+    });
+  });
+
+  // ---------- Print & Binding ----------
+  var printDocs = [];
+  function renderPrint() {
+    var ids = printDocs.map(function (j) { return j.authorId; }).filter(Boolean)
+      .concat(printDocs.map(function (j) { return j.claimedBy; }).filter(Boolean));
+    resolveProfiles(Array.from(new Set(ids))).then(renderPrintList);
+    renderPrintList();
+    qs("printEmpty").hidden = printDocs.length > 0;
+  }
+
+  function claimPrintJob(id) {
+    if (!db) return;
+    getMyId().then(function () {
+      db.collection("printjobs").doc(id).update({ status: "claimed", claimedBy: myId, claimedAt: new Date().toISOString() }).catch(function () {});
+    });
+  }
+
+  function donePrintJob(id) {
+    if (!db) return;
+    db.collection("printjobs").doc(id).update({ status: "done", doneAt: new Date().toISOString() }).catch(function () {});
+  }
+
+  function renderPrintList() {
+    var feed = qs("printFeed");
+    feed.innerHTML = "";
+    printDocs.forEach(function (j) {
+      var mine = j.authorId === myId;
+      var claimedByMe = j.claimedBy === myId;
+      var statusLabel = j.status === "done" ? "Done" : j.status === "claimed" ? "Claimed" : "Open";
+
+      var kids = [
+        el("div", { class: "item-top" }, [
+          el("div", { class: "who" }, [
+            el("span", { class: "badge mate", text: j.type || "Job" }),
+            el("span", { class: "name", text: nameFor(j.authorId) })
+          ]),
+          el("span", { class: "when mono", text: fmtWhen(j.createdAt) })
+        ]),
+        el("div", { class: "item-text", text: j.desc })
+      ];
+      var metaBits = [];
+      if (j.pages) metaBits.push(j.pages);
+      if (j.deadline) metaBits.push("Needed by " + dayLabel(j.deadline));
+      if (metaBits.length) kids.push(el("div", { class: "when", text: metaBits.join(" · ") }));
+
+      var actions = el("div", { class: "item-actions" });
+      actions.appendChild(el("span", { class: "chip-status " + (j.status === "done" ? "ack" : "pending"), text: statusLabel }));
+      var normalized = normalizePhone(j.contact);
+      if (normalized && j.status !== "done") {
+        actions.appendChild(el("a", { class: "act-btn call", href: "tel:" + normalized, text: "Call" }));
+        actions.appendChild(el("a", {
+          class: "act-btn whatsapp", target: "_blank", rel: "noopener",
+          href: "https://wa.me/" + normalized.replace("+", "") + "?text=" + encodeURIComponent("Hi, I can help with your print/typing/binding job on ClassLine: \"" + j.desc + "\"."),
+          text: "WhatsApp"
+        }));
+      }
+      if (!mine && j.status === "open") {
+        var claimBtn = el("button", { type: "button", class: "btn ghost", text: "Take this job" });
+        claimBtn.addEventListener("click", function () { claimPrintJob(j.id); });
+        actions.appendChild(claimBtn);
+      }
+      if (claimedByMe && j.status === "claimed") {
+        var doneBtn = el("button", { type: "button", class: "btn ghost", text: "Mark as done" });
+        doneBtn.addEventListener("click", function () { donePrintJob(j.id); });
+        actions.appendChild(doneBtn);
+      }
+      if (mine) {
+        var delBtn = el("button", { type: "button", class: "btn danger-ghost", text: "Remove" });
+        delBtn.addEventListener("click", function () { removeDoc("printjobs", j.id); });
+        actions.appendChild(delBtn);
+      }
+      kids.push(actions);
+      feed.appendChild(el("div", { class: "item" + (mine ? " mine" : "") + (j.status === "done" ? " past" : "") }, kids));
+    });
+  }
+
+  qs("printForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var desc = qs("printDesc").value.trim();
+    if (!desc) return;
+    var type = qs("printType").value;
+    var pages = qs("printPages").value.trim();
+    var deadline = qs("printDeadline").value;
+    var contact = qs("printContact").value.trim();
+    var btn = qs("printSendBtn"), note = qs("printConnNote");
+    setSending(btn, note, true);
+    getMyId().then(function () {
+      if (!db) { setSending(btn, note, false); note.classList.add("show"); return; }
+      return db.collection("printjobs").add({
+        desc: desc, type: type, pages: pages, deadline: deadline, contact: contact,
+        status: "open", role: myRole, authorId: myId, createdAt: new Date().toISOString()
+      }).then(function () {
+        qs("printDesc").value = ""; qs("printPages").value = ""; qs("printDeadline").value = ""; qs("printContact").value = "";
+      }).catch(function () {}).then(function () { setSending(btn, note, false); });
+    });
+  });
+
+  // ---------- Lecturer Workspace (encrypted) ----------
+  var workspaceDocs = [];
+  var wsDecrypted = {};     // doc id -> {institution,title,content,link} or null (couldn't decrypt)
+  var wsSalt = null;        // base64 salt, shared via db, not secret
+  var wsKey = null;         // CryptoKey, only ever kept in memory / derived from a passphrase
+  var wsSaltKnown = false;  // whether the workspaceAccess doc has loaded yet
+
+  function b64enc(buf) { return btoa(String.fromCharCode.apply(null, new Uint8Array(buf))); }
+  function b64dec(str) {
+    var bin = atob(str), arr = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return arr.buffer;
+  }
+
+  function deriveWsKey(passphrase, saltB64) {
+    return crypto.subtle.importKey("raw", new TextEncoder().encode(passphrase), { name: "PBKDF2" }, false, ["deriveKey"])
+      .then(function (keyMaterial) {
+        return crypto.subtle.deriveKey(
+          { name: "PBKDF2", salt: new Uint8Array(b64dec(saltB64)), iterations: 150000, hash: "SHA-256" },
+          keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
+        );
+      });
+  }
+
+  function wsEncryptRecord(key, obj) {
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    return crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, new TextEncoder().encode(JSON.stringify(obj)))
+      .then(function (ct) { return { iv: b64enc(iv), blob: b64enc(ct) }; });
+  }
+
+  function wsDecryptRecord(key, ivB64, blobB64) {
+    return crypto.subtle.decrypt({ name: "AES-GCM", iv: new Uint8Array(b64dec(ivB64)) }, key, b64dec(blobB64))
+      .then(function (buf) { return JSON.parse(new TextDecoder().decode(buf)); })
+      .catch(function () { return null; }); // wrong passphrase or corrupted record
+  }
+
+  function wsSetLockUi(state) {
+    // state: "setup" (no passphrase exists yet), "locked" (needs passphrase), "unlocked"
+    qs("wsLockCard").hidden = state === "unlocked";
+    qs("wsUnlockedArea").hidden = state !== "unlocked";
+    qs("wsLockTitle").textContent = state === "setup" ? "Set a workspace passphrase" : "Workspace is locked";
+    qs("wsLockHint").textContent = state === "setup"
+      ? "Everything saved here is encrypted with this passphrase before it ever reaches the shared board — pick one and share it only with whoever should read this workspace."
+      : "Enter the workspace passphrase to decrypt and view these notes.";
+    qs("wsUnlockBtn").textContent = state === "setup" ? "Create & unlock" : "Unlock";
+    qs("wsLockError").style.display = "none";
+  }
+
+  function wsTryAutoUnlock() {
+    if (!wsSaltKnown || wsKey) return;
+    var cached;
+    try { cached = localStorage.getItem("classline_ws_pass"); } catch (e) { cached = null; }
+    if (cached && wsSalt) {
+      deriveWsKey(cached, wsSalt).then(function (key) {
+        wsKey = key;
+        wsDecrypted = {};
+        wsSetLockUi("unlocked");
+        renderWorkspace();
+      });
+    } else {
+      wsSetLockUi(wsSalt ? "locked" : "setup");
+    }
+  }
+
+  qs("wsUnlockBtn").addEventListener("click", function () {
+    var pass = qs("wsPassphrase").value;
+    if (!pass) return;
+    if (!wsSalt) {
+      var saltB64 = b64enc(crypto.getRandomValues(new Uint8Array(16)));
+      deriveWsKey(pass, saltB64).then(function (key) {
+        wsKey = key; wsSalt = saltB64; wsDecrypted = {};
+        if (db) db.collection("workspaceAccess").doc("info").set({ salt: saltB64 }).catch(function () {});
+        try { localStorage.setItem("classline_ws_pass", pass); } catch (e) {}
+        qs("wsPassphrase").value = "";
+        wsSetLockUi("unlocked");
+        renderWorkspace();
+      });
+    } else {
+      deriveWsKey(pass, wsSalt).then(function (key) {
+        // verify against an existing record if one exists, so a wrong passphrase is caught here
+        var sample = workspaceDocs[0];
+        var check = sample ? wsDecryptRecord(key, sample.iv, sample.blob) : Promise.resolve({});
+        check.then(function (res) {
+          if (sample && res === null) {
+            qs("wsLockError").textContent = "That passphrase doesn't match — try again.";
+            qs("wsLockError").style.display = "block";
+            return;
+          }
+          wsKey = key; wsDecrypted = {};
+          try { localStorage.setItem("classline_ws_pass", pass); } catch (e) {}
+          qs("wsPassphrase").value = "";
+          wsSetLockUi("unlocked");
+          renderWorkspace();
+        });
+      });
+    }
+  });
+
+  qs("wsLockBtn").addEventListener("click", function () {
+    wsKey = null; wsDecrypted = {};
+    try { localStorage.removeItem("classline_ws_pass"); } catch (e) {}
+    wsSetLockUi(wsSalt ? "locked" : "setup");
+  });
+
+  function populateInstitutionList() {
+    var dl = qs("wsInstitutionList");
+    if (!dl) return;
+    var names = Array.from(new Set(workspaceDocs.map(function (w) {
+      var d = wsDecrypted[w.id]; return d ? d.institution : null;
+    }).filter(Boolean)));
+    dl.innerHTML = "";
+    names.forEach(function (n) { dl.appendChild(el("option", { value: n })); });
+  }
+
+  function renderWorkspace() {
+    if (!wsKey) return; // stays locked until unlocked — nothing to decrypt yet
+    var todo = workspaceDocs.filter(function (w) { return !(w.id in wsDecrypted); });
+    Promise.all(todo.map(function (w) {
+      return wsDecryptRecord(wsKey, w.iv, w.blob).then(function (res) { wsDecrypted[w.id] = res; });
+    })).then(function () {
+      var ids = workspaceDocs.map(function (w) { return w.authorId; }).filter(Boolean);
+      resolveProfiles(Array.from(new Set(ids))).then(renderWorkspaceList);
+      renderWorkspaceList();
+      populateInstitutionList();
+      qs("workspaceEmpty").hidden = workspaceDocs.length > 0;
+    });
+  }
+
+  function renderWorkspaceList() {
+    var wrap = qs("workspaceFeed");
+    wrap.innerHTML = "";
+    var byInst = {};
+    var order = [];
+    workspaceDocs.forEach(function (w) {
+      var d = wsDecrypted[w.id];
+      var key = d ? (d.institution || "Unsorted") : "🔒 Couldn't decrypt";
+      if (!byInst[key]) { byInst[key] = []; order.push(key); }
+      byInst[key].push({ raw: w, d: d });
+    });
+    order.forEach(function (inst) {
+      var group = el("div", { class: "deal-group" }, [
+        el("div", { class: "deal-group-head", text: inst })
+      ]);
+      byInst[inst].forEach(function (entry) {
+        var w = entry.raw, d = entry.d;
+        var mine = w.authorId === myId;
+        if (!d) {
+          group.appendChild(el("div", { class: "item" }, [
+            el("div", { class: "item-text", text: "Encrypted entry — this passphrase couldn't open it." })
+          ]));
+          return;
+        }
+        var kids = [
+          el("div", { class: "item-top" }, [
+            el("div", { class: "who" }, [badge(w.type || "Note"), el("span", { class: "name", text: nameFor(w.authorId) })]),
+            el("span", { class: "when mono", text: fmtWhen(w.createdAt) })
+          ]),
+          el("div", { class: "item-text", text: d.title })
+        ];
+        if (d.content) kids.push(el("div", { class: "item-text", text: d.content }));
+        if (d.link) kids.push(el("a", { class: "act-btn", href: d.link, target: "_blank", rel: "noopener", text: "Open link" }));
+        if (mine) {
+          var delBtn = el("button", { type: "button", class: "btn danger-ghost", text: "Remove" });
+          delBtn.addEventListener("click", function () { removeDoc("workspace", w.id); });
+          kids.push(el("div", { class: "item-actions" }, [delBtn]));
+        }
+        group.appendChild(el("div", { class: "item" + (mine ? " mine" : "") }, kids));
+      });
+      wrap.appendChild(group);
+    });
+  }
+
+  qs("workspaceForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (!wsKey) return;
+    var institution = qs("wsInstitution").value.trim();
+    var title = qs("wsTitle").value.trim();
+    if (!institution || !title) return;
+    var type = qs("wsType").value;
+    var link = qs("wsLink").value.trim();
+    var content = qs("wsContent").value.trim();
+    var btn = qs("wsSendBtn"), note = qs("wsConnNote");
+    setSending(btn, note, true);
+    getMyId().then(function () {
+      if (!db) { setSending(btn, note, false); note.classList.add("show"); return; }
+      return wsEncryptRecord(wsKey, { institution: institution, title: title, content: content, link: link }).then(function (enc) {
+        return db.collection("workspace").add({
+          iv: enc.iv, blob: enc.blob, type: type,
+          role: myRole, authorId: myId, createdAt: new Date().toISOString()
+        });
+      }).then(function () {
+        qs("wsTitle").value = ""; qs("wsLink").value = ""; qs("wsContent").value = "";
+      }).catch(function () {}).then(function () { setSending(btn, note, false); });
+    });
+  });
+
+  // ---------- Data Bundles ----------
+  var bundleDocs = [];
+  var sellerInfo = {};
+
+  function renderSellerInfo() {
+    if (document.activeElement !== qs("sellerTill")) qs("sellerTill").value = sellerInfo.till || "";
+    if (document.activeElement !== qs("sellerPhone")) qs("sellerPhone").value = sellerInfo.phone || "";
+    if (document.activeElement !== qs("sellerHelpline")) qs("sellerHelpline").value = sellerInfo.helpline || "";
+  }
+
+  qs("sellerSaveBtn").addEventListener("click", function () {
+    if (!db) return;
+    var data = {
+      till: qs("sellerTill").value.trim(),
+      phone: qs("sellerPhone").value.trim(),
+      helpline: qs("sellerHelpline").value.trim()
+    };
+    db.collection("bundleSeller").doc("info").set(data).catch(function () {});
+  });
+
+  function renderBundles() {
+    var ids = bundleDocs.map(function (b) { return b.authorId; }).filter(Boolean);
+    resolveProfiles(Array.from(new Set(ids))).then(renderBundlesList);
+    renderBundlesList();
+    qs("bundlesEmpty").hidden = bundleDocs.length > 0;
+  }
+
+  function renderBundlesList() {
+    var wrap = qs("bundlesFeed");
+    wrap.innerHTML = "";
+    var normalized = normalizePhone(sellerInfo.phone);
+    var byCat = {};
+    var order = [];
+    bundleDocs.forEach(function (b) {
+      if (!byCat[b.category]) { byCat[b.category] = []; order.push(b.category); }
+      byCat[b.category].push(b);
+    });
+    order.forEach(function (cat) {
+      var group = el("div", { class: "deal-group" }, [
+        el("div", { class: "deal-group-head", text: cat })
+      ]);
+      byCat[cat].forEach(function (b) {
+        var mine = b.authorId === myId;
+        var actions = el("div", { class: "deal-line-actions" });
+        if (normalized) {
+          var msg = "Hi, I'd like to buy: " + b.line + ". I'll pay to till " + (sellerInfo.till || "") + ".";
+          actions.appendChild(el("a", { class: "act-btn whatsapp", target: "_blank", rel: "noopener", href: "https://wa.me/" + normalized.replace("+", "") + "?text=" + encodeURIComponent(msg), text: "Order" }));
+        }
+        if (mine) {
+          var delBtn = el("button", { type: "button", class: "btn danger-ghost", text: "Remove" });
+          delBtn.addEventListener("click", function () { removeDoc("databundles", b.id); });
+          actions.appendChild(delBtn);
+        }
+        group.appendChild(el("div", { class: "deal-line" }, [
+          el("span", { class: "deal-line-text mono", text: b.line }),
+          actions
+        ]));
+      });
+      wrap.appendChild(group);
+    });
+  }
+
+  qs("bundleForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var category = qs("bundleCategory").value.trim();
+    var line = qs("bundleLine").value.trim();
+    if (!category || !line) return;
+    var btn = qs("bundleSendBtn"), note = qs("bundleConnNote");
+    setSending(btn, note, true);
+    getMyId().then(function () {
+      if (!db) { setSending(btn, note, false); note.classList.add("show"); return; }
+      return db.collection("databundles").add({
+        category: category, line: line, role: myRole, authorId: myId, createdAt: new Date().toISOString()
+      }).then(function () {
+        qs("bundleLine").value = "";
+      }).catch(function () {}).then(function () { setSending(btn, note, false); });
+    });
+  });
+
+  // ---------- subscriptions ----------
+  function subscribeAll() {
+    if (!db) return;
+
+    var msgTimer = setTimeout(function () { qs("lecturerConnNote").classList.add("show"); }, 10000);
+    db.collection("messages").orderBy("createdAt", "desc").limit(50).onSnapshot(function (snap) {
+      clearTimeout(msgTimer);
+      qs("lecturerConnNote").classList.remove("show");
+      lecturerDocs = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+      renderLecturer();
+    }, function () { qs("lecturerConnNote").classList.add("show"); });
+
+    var boardTimer = setTimeout(function () { qs("boardConnNote").classList.add("show"); }, 10000);
+    db.collection("announcements").orderBy("createdAt", "desc").limit(50).onSnapshot(function (snap) {
+      clearTimeout(boardTimer);
+      qs("boardConnNote").classList.remove("show");
+      boardDocs = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+      renderBoard();
+    }, function () { qs("boardConnNote").classList.add("show"); });
+
+    var schedTimer = setTimeout(function () { qs("schedConnNote").classList.add("show"); }, 10000);
+    db.collection("bookings").orderBy("sortKey", "asc").limit(200).onSnapshot(function (snap) {
+      clearTimeout(schedTimer);
+      qs("schedConnNote").classList.remove("show");
+      var now = new Date();
+      var all = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+      schedDocs = all.filter(function (b) {
+        var endDt = new Date(b.date + "T" + (b.endTime || "23:59"));
+        return endDt > new Date(now.getTime() - 24 * 3600 * 1000);
+      });
+      renderSchedule();
+      if (unlockedCourse) renderMyClassSchedule();
+    }, function () { qs("schedConnNote").classList.add("show"); });
+
+    db.collection("lecturers").orderBy("code", "asc").limit(50).onSnapshot(function (snap) {
+      contactDocs = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+      renderContacts();
+      renderProgress();
+      populateCourseSelect();
+      if (unlockedCourse) renderMyClass();
+    }, function () {});
+
+    db.collection("classAccess").doc("info").onSnapshot(function (snap) {
+      classAccessInfo = snap.exists ? snap.data() : {};
+    }, function () {});
+
+    db.collection("assignments").orderBy("createdAt", "desc").limit(300).onSnapshot(function (snap) {
+      assignDocs = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+      if (unlockedCourse) renderAssignments();
+    }, function () {});
+
+    db.collection("progress").orderBy("createdAt", "desc").limit(300).onSnapshot(function (snap) {
+      var map = {};
+      snap.docs.forEach(function (d) {
+        var data = d.data();
+        if (!map[data.code]) map[data.code] = [];
+        map[data.code].push(data);
+      });
+      progressByCode = map;
+      renderProgress();
+    }, function () {});
+
+    db.collection("workspaceAccess").doc("info").onSnapshot(function (snap) {
+      wsSalt = snap.exists ? (snap.data().salt || null) : null;
+      wsSaltKnown = true;
+      wsTryAutoUnlock();
+    }, function () { wsSaltKnown = true; wsTryAutoUnlock(); });
+
+    db.collection("workspace").orderBy("createdAt", "desc").limit(300).onSnapshot(function (snap) {
+      workspaceDocs = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+      if (wsKey) renderWorkspace();
+    }, function () {});
+
+    db.collection("marketplace").orderBy("createdAt", "desc").limit(100).onSnapshot(function (snap) {
+      marketDocs = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+      renderMarket();
+    }, function () {});
+
+    db.collection("data/users/" + myId).doc("verification").onSnapshot(function (snap) {
+      marketVerified = snap.exists;
+      updateMarketGate();
+    }, function () {});
+
+    db.collection("printjobs").orderBy("createdAt", "desc").limit(100).onSnapshot(function (snap) {
+      printDocs = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+      renderPrint();
+    }, function () {});
+
+    db.collection("databundles").orderBy("category", "asc").limit(200).onSnapshot(function (snap) {
+      bundleDocs = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+      renderBundles();
+    }, function () {});
+
+    db.collection("bundleSeller").doc("info").onSnapshot(function (snap) {
+      sellerInfo = snap.exists ? snap.data() : {};
+      renderSellerInfo();
+      renderBundles();
+    }, function () {});
+  }
+
+  // ---------- init ----------
+  function init() {
+    qs("roleBtnLabel").textContent = myRole;
+    renderRoleOptions();
+    updateLecturerSendVisibility();
+    showTab(location.hash.slice(1) || "lecturer");
+
+    var today = new Date().toISOString().slice(0, 10);
+    qs("schedDate").value = today;
+    renderMyClass();
+    updateMarketGate();
+    wsSetLockUi("setup");
+
+    Promise.resolve(typeof claude !== "undefined" ? claude.use("db") : null).then(function (d) {
+      db = d;
+      return typeof claude !== "undefined" ? claude.use("user") : null;
+    }).then(function (u) {
+      user = u;
+      return getMyId();
+    }).then(function () {
+      if (!db) {
+        ["lecturerConnNote", "boardConnNote", "schedConnNote"].forEach(function (id) {
+          qs(id).textContent = "This view can't reach the shared board right now — posts won't be saved.";
+          qs(id).classList.add("show");
+        });
+        return;
+      }
+      subscribeAll();
+    });
+  }
+
+  init();
+})();
+</script>
