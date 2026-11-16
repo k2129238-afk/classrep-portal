@@ -1,10 +1,11 @@
-<!-- GSAP & Lenis Smooth Scrolling + Entrance Animations -->
+<!-- GSAP, ScrollTrigger, SplitText & Lenis Smooth Scrolling -->
+<script src="https://jsdelivr.net"></script>
 <script src="https://jsdelivr.net"></script>
 <script src="https://jsdelivr.net"></script>
 <script src="https://unpkg.com"></script>
 <script>
   document.addEventListener("DOMContentLoaded", () => {
-    gsap.registerPlugin(ScrollTrigger);
+    gsap.registerPlugin(ScrollTrigger, SplitText);
 
     // 1. Initialize Lenis inside ClassLine's scrollable content column
     const scrollWrapper = document.querySelector(".content-area");
@@ -24,23 +25,49 @@
     });
     gsap.ticker.lagSmoothing(0);
 
-    // 2. Hero Banner & Stat Tiles Entrance Timeline
+    // 2. SplitText Character Animation on Hero Headline
+    const headlineEl = document.querySelector(".content-inner h1");
+    let splitHeadline;
+    if (headlineEl) {
+      splitHeadline = new SplitText(headlineEl, { type: "words,chars" });
+    }
+
+    // 3. Hero Banner & Stat Tiles Entrance Timeline
     const entranceTl = gsap.timeline({ defaults: { ease: "power3.out" } });
 
     entranceTl
       .from(".programme-label", { y: -10, opacity: 0, duration: 0.4 })
-      .from(".stat-tile", { y: 16, opacity: 0, duration: 0.45, stagger: 0.08 }, "-=0.2")
-      .from(".content-inner h1", { y: 22, opacity: 0, duration: 0.55 }, "-=0.25")
-      .from(".content-inner h1 + p", { y: 16, opacity: 0, duration: 0.45 }, "-=0.35")
-      .from(".content-inner h1 ~ div button, .content-inner h1 ~ div a", {
-        y: 12,
-        opacity: 0,
-        duration: 0.4,
-        stagger: 0.08,
-        clearProps: "transform"
-      }, "-=0.3");
+      .from(".stat-tile", { y: 16, opacity: 0, duration: 0.45, stagger: 0.08 }, "-=0.2");
 
-    // 3. Staggered Sidebar Navigation Links Entrance
+    if (splitHeadline) {
+      entranceTl.from(
+        splitHeadline.chars,
+        {
+          y: 22,
+          opacity: 0,
+          duration: 0.45,
+          stagger: 0.018,
+          ease: "back.out(1.6)"
+        },
+        "-=0.25"
+      );
+    }
+
+    entranceTl
+      .from(".content-inner h1 + p", { y: 16, opacity: 0, duration: 0.45 }, "-=0.3")
+      .from(
+        ".content-inner h1 ~ div button, .content-inner h1 ~ div a",
+        {
+          y: 12,
+          opacity: 0,
+          duration: 0.4,
+          stagger: 0.08,
+          clearProps: "transform"
+        },
+        "-=0.25"
+      );
+
+    // 4. Staggered Sidebar Navigation Links Entrance
     gsap.from(".tabs a", {
       x: -14,
       opacity: 0,
@@ -50,7 +77,7 @@
       clearProps: "transform"
     });
 
-    // 4. Interactive Hover Micro-Animations on Sidebar & Action Buttons
+    // 5. Interactive Hover Micro-Animations on Sidebar & Role Pill
     document.querySelectorAll(".tabs a, .role-pill").forEach((btn) => {
       btn.addEventListener("mouseenter", () => {
         gsap.to(btn, { x: 4, duration: 0.2, ease: "power2.out" });
@@ -60,23 +87,43 @@
       });
     });
 
-    // 5. Smooth Tab Switching & Scroll-to-Top
+    // 6. Animate Progress Bars Whenever Class Progress Opens
+    const animateProgressBars = () => {
+      const bars = document.querySelectorAll(
+        '[data-progress], .progress-fill, .bar-fill, progress'
+      );
+      bars.forEach((bar) => {
+        const targetWidth = bar.style.width || bar.getAttribute("data-progress");
+        if (targetWidth) {
+          gsap.fromTo(
+            bar,
+            { width: "0%" },
+            { width: targetWidth, duration: 0.85, ease: "power3.out" }
+          );
+        }
+      });
+    };
+
+    // 7. Smooth Tab Switching & Scroll-to-Top
     document.querySelectorAll(".tabs a").forEach((tab) => {
       tab.addEventListener("click", () => {
         lenis.scrollTo(0, { duration: 0.5 });
 
-        const activePanel = document.querySelector(".content-inner section:not([hidden])");
-        if (activePanel) {
-          gsap.fromTo(
-            activePanel,
-            { y: 14, opacity: 0 },
-            { y: 0, opacity: 1, duration: 0.4, ease: "power2.out", clearProps: "transform" }
-          );
-        }
+        requestAnimationFrame(() => {
+          const activePanel = document.querySelector(".content-inner section:not([hidden])");
+          if (activePanel) {
+            gsap.fromTo(
+              activePanel,
+              { y: 14, opacity: 0 },
+              { y: 0, opacity: 1, duration: 0.4, ease: "power2.out", clearProps: "transform" }
+            );
+          }
+          animateProgressBars();
+        });
       });
     });
 
-    // 6. ScrollTrigger Reveal for Cards & Sections Below the Fold
+    // 8. ScrollTrigger Reveal for Sections Below the Fold
     gsap.utils.toArray(".content-inner section").forEach((section) => {
       gsap.from(section, {
         y: 20,
